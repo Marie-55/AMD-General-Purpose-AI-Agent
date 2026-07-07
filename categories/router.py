@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from utils.heuristics import CATEGORY_ORDER, classify_heuristically, pick_model
+from utils.heuristics import CATEGORY_ORDER, classify_heuristically, is_retryable_model_error, rank_models
 from utils.models import RouteDecision, RuntimeConfig, TaskCategory, UsageTotals
 from utils.parsing import parse_json_loose
 
@@ -24,7 +24,6 @@ class TaskRouter:
         return self._llm_route(prompt, heuristic)
 
     def _llm_route(self, prompt: str, heuristic: RouteDecision | None = None) -> RouteDecision:
-        model = pick_model(self.config, "router")
         categories = ", ".join(category.value for category in CATEGORY_ORDER)
         system = (
             "You are a strict router for a hackathon AI agent. "
@@ -42,16 +41,26 @@ class TaskRouter:
         user_parts.append("Task prompt:")
         user_parts.append(prompt)
 
-        text, usage, _ = self.client.chat_completion(
-            model,
-            [
-                {"role": "system", "content": system},
-                {"role": "user", "content": "\n\n".join(user_parts)},
-            ],
-            temperature=0.0,
-            max_tokens=96,
-        )
-        self._record_usage(usage)
+        last_error: Exception | None = None
+        for model in rank_models(self.config.allowed_models, "router"):
+            try:
+                text, usage, _ = self.client.chat_completion(
+                    model,
+                    [
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": "\n\n".join(user_parts)},
+                    ],
+                    temperature=0.0,
+                    max_tokens=96,
+                )
+                self._record_usage(usage)
+                break
+            except Exception as exc:
+                last_error = exc
+                if not is_retryable_model_error(exc):
+                    raise
+        else:
+            raise RuntimeError(f"All router models failed: {last_error}")
 
         try:
             data = parse_json_loose(text)

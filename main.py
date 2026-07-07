@@ -6,6 +6,7 @@ import sys
 
 from utils.agent import run_from_files_sync
 from utils.config import load_runtime_config, missing_runtime_envs, validate_runtime_config
+from utils.reporting import render_run_summary
 
 
 def main() -> int:
@@ -30,8 +31,9 @@ def main() -> int:
                 config = replace(config, allowed_models=["mock-router", "mock-code", "mock-summary"])
         elif not missing:
             validate_runtime_config(config)
-        results = run_from_files_sync(config, use_mock_client=use_mock_client)
+        results, summary = run_from_files_sync(config, use_mock_client=use_mock_client)
         print(f"Wrote {len(results)} results to {config.output_path}")
+        print(render_run_summary(summary))
         return 0
     except Exception as exc:  # pragma: no cover - surfaced to the container logs
         print(f"Fatal error: {exc}", file=sys.stderr)

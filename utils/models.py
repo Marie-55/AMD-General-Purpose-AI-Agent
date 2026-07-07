@@ -46,10 +46,63 @@ class TaskResult:
 
 
 @dataclass(frozen=True)
+class TaskExecutionStats:
+    task_id: str
+    category: str
+    prompt_tokens: int
+    completion_tokens: int
+    latency_ms: float
+    error: str | None = None
+
+    @property
+    def total_tokens(self) -> int:
+        return int(self.prompt_tokens) + int(self.completion_tokens)
+
+
+@dataclass(frozen=True)
 class RouteDecision:
     category: str
     confidence: float
     source: str
+
+
+@dataclass
+class CategoryAggregate:
+    count: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    latency_ms_total: float = 0.0
+    errors: int = 0
+
+    def add(self, stats: TaskExecutionStats) -> None:
+        self.count += 1
+        self.prompt_tokens += int(stats.prompt_tokens)
+        self.completion_tokens += int(stats.completion_tokens)
+        self.latency_ms_total += float(stats.latency_ms)
+        if stats.error:
+            self.errors += 1
+
+    @property
+    def total_tokens(self) -> int:
+        return self.prompt_tokens + self.completion_tokens
+
+    @property
+    def avg_latency_ms(self) -> float:
+        return self.latency_ms_total / self.count if self.count else 0.0
+
+
+@dataclass(frozen=True)
+class RunSummary:
+    elapsed_s: float
+    num_tasks: int
+    num_errors: int
+    total_prompt_tokens: int
+    total_completion_tokens: int
+    total_tokens: int
+    per_category: dict[str, CategoryAggregate]
+    task_stats: list[TaskExecutionStats]
+    estimated_credit_spent_usd: float | None = None
+    estimated_remaining_usd: float | None = None
 
 
 @dataclass

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from utils.heuristics import pick_model
-from utils.models import RuntimeConfig, Task, TaskCategory, TaskResult, UsageTotals
+from utils.heuristics import is_retryable_model_error, rank_models
+from utils.models import RuntimeConfig, Task, TaskCategory, UsageTotals
 from utils.parsing import (
     collapse_json_answer,
     compact_text,
@@ -40,18 +40,25 @@ class CategorySolvers:
         max_tokens: int,
         temperature: float = 0.0,
     ) -> str:
-        model = pick_model(self.config, role)
-        text, usage, _ = self.client.chat_completion(
-            model,
-            [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=temperature,
-            max_tokens=max_tokens,
-        )
-        self._record_usage(usage)
-        return text
+        last_error: Exception | None = None
+        for model in rank_models(self.config.allowed_models, role):
+            try:
+                text, usage, _ = self.client.chat_completion(
+                    model,
+                    [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                )
+                self._record_usage(usage)
+                return text
+            except Exception as exc:
+                last_error = exc
+                if not is_retryable_model_error(exc):
+                    raise
+        raise RuntimeError(f"All {role} models failed: {last_error}")
 
     def _call_json_model(
         self,
@@ -172,7 +179,6 @@ class CategorySolvers:
         return strip_code_fences(text).strip()
 
     def solve_program_aided(self, task: Task, *, label: str) -> str:
-        code_model = pick_model(self.config, "code")
         primary_system = (
             "Write a compact Python 3 program that solves the problem exactly. "
             "Use only the standard library. "
@@ -183,16 +189,7 @@ class CategorySolvers:
             f"{task.prompt}\n\n"
             "Return only executable Python code. Keep it short, deterministic, and self-contained."
         )
-        code_text, usage, _ = self.client.chat_completion(
-            code_model,
-            [
-                {"role": "system", "content": primary_system},
-                {"role": "user", "content": primary_user},
-            ],
-            temperature=0.0,
-            max_tokens=512,
-        )
-        self._record_usage(usage)
+        code_text = self._call_text_model("code", primary_system, primary_user, max_tokens=512)
 
         source = strip_code_fences(code_text)
         sandbox_result = self.sandbox.run(source)

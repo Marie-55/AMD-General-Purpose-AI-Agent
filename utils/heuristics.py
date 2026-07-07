@@ -118,3 +118,19 @@ def pick_model(config: RuntimeConfig, role: str) -> str:
     if not ranked:
         raise RuntimeError("No allowed models are available.")
     return ranked[0]
+
+
+RETRYABLE_MODEL_ERROR_HINTS = (
+    "not found",
+    "inaccessible",
+    "not deployed",
+    "unknown model",
+    "404",
+    "model unavailable",
+    "deployment",
+)
+
+
+def is_retryable_model_error(exc: BaseException) -> bool:
+    message = str(exc).lower()
+    return any(hint in message for hint in RETRYABLE_MODEL_ERROR_HINTS)

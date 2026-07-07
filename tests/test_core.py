@@ -30,6 +30,18 @@ class FakeClient:
         return text, (3, 2), {"choices": [{"message": {"content": text}}], "usage": {"prompt_tokens": 3, "completion_tokens": 2}}
 
 
+class FallbackClient:
+    def __init__(self):
+        self.calls = []
+
+    def chat_completion(self, model, messages, *, temperature=0.0, max_tokens=None, top_p=None, endpoint="chat/completions"):
+        self.calls.append(model)
+        if "gemma" in model:
+            raise RuntimeError("404 model not found")
+        text = '{"category":"factual","confidence":0.9,"reason":"fallback"}' if any("available categories" in m.get("content", "") for m in messages) else "Paris"
+        return text, (4, 1), {"choices": [{"message": {"content": text}}], "usage": {"prompt_tokens": 4, "completion_tokens": 1}}
+
+
 def make_config(tmp_path: Path) -> RuntimeConfig:
     return RuntimeConfig(
         api_key="test-key",
@@ -83,6 +95,19 @@ def test_agent_runs_with_fake_client(tmp_path):
     result = agent.solve_task(Task(task_id="t1", prompt="Where is the Eiffel Tower?"))
     assert result.task_id == "t1"
     assert "Paris" in result.answer
+
+
+def test_model_fallback_skips_unavailable_gemma(tmp_path):
+    config = RuntimeConfig(
+        api_key="k",
+        base_url="https://example.com",
+        allowed_models=["gemma-4-31b-it", "kimi-k2p7-code", "minimax-m3"],
+        input_path=tmp_path / "tasks.json",
+        output_path=tmp_path / "results.json",
+    )
+    agent = TrackOneAgent(config, client=FallbackClient())
+    result = agent.solve_task(Task(task_id="t1", prompt="Explain what the CAP theorem states."))
+    assert result.task_id == "t1"
 
 
 def test_task_io_roundtrip(tmp_path):
