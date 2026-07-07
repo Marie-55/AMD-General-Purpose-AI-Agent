@@ -3,13 +3,18 @@
 This uses the same pipeline as the submitted container and makes real Fireworks
 calls. It intentionally does not mock the API and does not load a bundled .env;
 export FIREWORKS_API_KEY, FIREWORKS_BASE_URL, and ALLOWED_MODELS before running.
+
+Local default paths are relative to the repo root:
+  - input/tasks.json
+  - output/results.json
+
+The submitted Docker container still uses /input/tasks.json and
+/output/results.json through main.py's defaults.
 """
 import argparse
 import json
 import os
-import shutil
 import sys
-import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -31,30 +36,19 @@ def require_env() -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the real Fireworks pipeline against a local tasks JSON file.")
-    parser.add_argument("--input", default="tests/sample_tasks.json", help="Path to a tasks.json-style input file")
-    parser.add_argument("--output", default="", help="Optional output path. Defaults to a temporary results.json")
+    parser = argparse.ArgumentParser(description="Run the real Fireworks pipeline against input/tasks.json.")
+    parser.add_argument("--input", default="input/tasks.json", help="Path to a tasks.json-style input file")
+    parser.add_argument("--output", default="output/results.json", help="Path to write results JSON")
     args = parser.parse_args()
 
     require_env()
+    Path(args.output).parent.mkdir(parents=True, exist_ok=True)
 
-    tmp = tempfile.mkdtemp(prefix="agent-fireworks-")
-    try:
-        input_dir = os.path.join(tmp, "input")
-        output_dir = os.path.join(tmp, "output")
-        os.makedirs(input_dir)
-        os.makedirs(output_dir)
-        input_path = os.path.join(input_dir, "tasks.json")
-        output_path = args.output or os.path.join(output_dir, "results.json")
-        shutil.copyfile(args.input, input_path)
-
-        results, metrics = run_pipeline(input_path, output_path)
-        print("REAL FIREWORKS SMOKE RUN COMPLETED")
-        print(json.dumps(metrics.summary(), indent=2))
-        print(f"Results written to: {output_path}")
-        print(json.dumps(results, indent=2))
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+    results, metrics = run_pipeline(args.input, args.output)
+    print("REAL FIREWORKS SMOKE RUN COMPLETED")
+    print(json.dumps(metrics.summary(), indent=2))
+    print(f"Results written to: {args.output}")
+    print(json.dumps(results, indent=2))
 
 
 if __name__ == "__main__":
