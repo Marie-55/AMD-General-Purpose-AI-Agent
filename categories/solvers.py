@@ -104,7 +104,7 @@ class CategorySolvers:
             "You answer factual questions concisely and accurately. "
             "Use plain English, avoid chain-of-thought, and keep the answer compact."
         )
-        text = self._call_text_model("factual", system, task.prompt, max_tokens=128)
+        text = self._call_text_model("factual", system, task.prompt, max_tokens=256)
         return compact_text(text)
 
     def solve_summary(self, task: Task) -> str:

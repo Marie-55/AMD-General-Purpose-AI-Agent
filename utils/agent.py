@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from categories.router import TaskRouter
 from categories.solvers import CategorySolvers
-from utils.fireworks import FireworksClient
+from utils.fireworks import FireworksClient, MockFireworksClient
 from utils.models import RuntimeConfig, Task, TaskResult, UsageTotals
 from utils.sandbox import ExecutionSandbox
 from utils.task_io import read_tasks, write_results
@@ -47,8 +47,18 @@ class TrackOneAgent:
             return list(executor.map(self.solve_task, tasks))
 
 
-async def run_pipeline_async(tasks: list[Task], config: RuntimeConfig, *, agent: TrackOneAgent | None = None) -> list[TaskResult]:
-    active_agent = agent or TrackOneAgent(config)
+async def run_pipeline_async(
+    tasks: list[Task],
+    config: RuntimeConfig,
+    *,
+    agent: TrackOneAgent | None = None,
+    use_mock_client: bool = False,
+) -> list[TaskResult]:
+    if agent is None:
+        client = MockFireworksClient(config) if use_mock_client else None
+        active_agent = TrackOneAgent(config, client=client)
+    else:
+        active_agent = agent
     semaphore = asyncio.Semaphore(config.max_workers)
 
     async def process(task: Task) -> TaskResult:
@@ -59,9 +69,10 @@ async def run_pipeline_async(tasks: list[Task], config: RuntimeConfig, *, agent:
     return list(results)
 
 
-def run_from_files_sync(config: RuntimeConfig) -> list[TaskResult]:
+def run_from_files_sync(config: RuntimeConfig, *, use_mock_client: bool = False) -> list[TaskResult]:
     tasks = read_tasks(config.input_path)
-    agent = TrackOneAgent(config)
+    client = MockFireworksClient(config) if use_mock_client else None
+    agent = TrackOneAgent(config, client=client)
     results = agent.solve_tasks(tasks)
     write_results(config.output_path, results)
     return results

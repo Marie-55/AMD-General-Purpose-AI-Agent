@@ -32,16 +32,38 @@ def load_runtime_config() -> RuntimeConfig:
     api_key = os.getenv("FIREWORKS_API_KEY", "").strip()
     base_url = os.getenv("FIREWORKS_BASE_URL", "").strip()
     allowed_models = [model.strip() for model in os.getenv("ALLOWED_MODELS", "").split(",") if model.strip()]
+    input_override = os.getenv("INPUT_PATH", "").strip()
+    output_override = os.getenv("OUTPUT_PATH", "").strip()
+    local_input = Path.cwd() / "input" / "tasks.json"
+    local_output = Path.cwd() / "output" / "results.json"
 
     max_workers = max(1, int(os.getenv("MAX_WORKERS", "4")))
     request_timeout_s = max(1, int(os.getenv("REQUEST_TIMEOUT_S", "60")))
     model_timeout_s = max(1, int(os.getenv("MODEL_TIMEOUT_S", "25")))
     sandbox_timeout_s = max(1, int(os.getenv("SANDBOX_TIMEOUT_S", "4")))
 
+    if input_override:
+        input_path = Path(input_override)
+    elif Path("/input/tasks.json").exists():
+        input_path = Path("/input/tasks.json")
+    elif local_input.exists():
+        input_path = local_input
+    else:
+        input_path = Path("/input/tasks.json")
+
+    if output_override:
+        output_path = Path(output_override)
+    elif Path("/output").exists():
+        output_path = Path("/output/results.json")
+    else:
+        output_path = local_output
+
     return RuntimeConfig(
         api_key=api_key,
         base_url=base_url,
         allowed_models=allowed_models,
+        input_path=input_path,
+        output_path=output_path,
         max_workers=max_workers,
         request_timeout_s=request_timeout_s,
         model_timeout_s=model_timeout_s,
@@ -49,7 +71,7 @@ def load_runtime_config() -> RuntimeConfig:
     )
 
 
-def validate_runtime_config(config: RuntimeConfig) -> None:
+def missing_runtime_envs(config: RuntimeConfig) -> list[str]:
     missing = []
     if not config.api_key:
         missing.append("FIREWORKS_API_KEY")
@@ -57,5 +79,10 @@ def validate_runtime_config(config: RuntimeConfig) -> None:
         missing.append("FIREWORKS_BASE_URL")
     if not config.allowed_models:
         missing.append("ALLOWED_MODELS")
+    return missing
+
+
+def validate_runtime_config(config: RuntimeConfig) -> None:
+    missing = missing_runtime_envs(config)
     if missing:
         raise RuntimeError("Missing runtime environment variables: " + ", ".join(missing))

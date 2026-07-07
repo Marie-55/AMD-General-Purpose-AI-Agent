@@ -33,6 +33,15 @@ The container expects these variables at runtime:
 - `ALLOWED_MODELS`
 
 For local development you can provide them in a `.env` file in the repository root.
+If they are missing, the default run fails fast, which matches the hackathon
+container behavior. For local debugging, set `USE_MOCK_CLIENT=1` to enable the
+deterministic mock mode.
+
+Optional local path overrides:
+
+- `INPUT_PATH=./input/tasks.json`
+- `OUTPUT_PATH=./output/results.json`
+- `USE_MOCK_CLIENT=1`
 
 ## Run locally
 
