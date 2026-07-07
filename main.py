@@ -18,10 +18,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from categories.classifier import classify
 from categories.normalizer import normalize_prompt
-from categories.routing import route, CODE_EXEC_CATEGORIES
+from categories.routing import route, CODE_EXEC_CATEGORIES, get_allowed_models
 from categories.code_exec import build_codegen_messages, extract_code, run_code_safely
 from categories.metrics import MetricsCollector
-from utils.fireworks_client import FireworksClient
 
 # Hard limits from the rules: 10 min total runtime, 30s per request, 60s startup.
 # We budget under those with safety margin.
@@ -56,7 +55,8 @@ def _solve_via_code(client, prompt, category):
     llm_out, lat = client.call(model, messages, max_tokens=500, timeout=PER_REQUEST_TIMEOUT_S)
 
     if lat.get("error") or not llm_out:
-        return (*_direct_fallback(client, prompt, category, model), lat)
+        fallback_answer, fallback_lat = _direct_fallback_call(client, prompt, category, model)
+        return fallback_answer, "code_exec_fallback", model, fallback_lat
 
     code = extract_code(llm_out)
     ok, output = run_code_safely(code, timeout_s=CODE_EXEC_TIMEOUT_S)
@@ -74,21 +74,39 @@ def _direct_fallback_call(client, prompt, category, model):
 
 def run_pipeline(input_path="/input/tasks.json", output_path="/output/results.json", client=None):
     start = time.time()
+
     with open(input_path) as f:
         tasks = json.load(f)
 
-    client = client or FireworksClient()
+    if not isinstance(tasks, list):
+        raise ValueError("/input/tasks.json must contain a JSON list")
+
+    for i, task in enumerate(tasks):
+        if not isinstance(task, dict) or "task_id" not in task or "prompt" not in task:
+            raise ValueError(f"Task at index {i} must contain task_id and prompt")
+
+    # Validate model configuration before dispatching worker threads.
+    # If ALLOWED_MODELS is missing, this is a configuration failure and should
+    # fail clearly instead of producing empty answers.
+    get_allowed_models()
+
+    if client is None:
+        from utils.fireworks_client import FireworksClient
+        client = FireworksClient()
+
     metrics = MetricsCollector()
     results = [None] * len(tasks)
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
         futures = {}
+
         for i, task in enumerate(tasks):
             if time.time() - start > TOTAL_TIME_BUDGET_S:
-                # Out of time budget: emit an empty (non-crashing) answer rather
-                # than risk exceeding the hard 10-minute runtime limit.
+                # Out of time budget: emit an empty answer rather than risk
+                # exceeding the hard 10-minute runtime limit.
                 results[i] = {"task_id": task["task_id"], "answer": ""}
                 continue
+
             futures[pool.submit(process_task, client, task, metrics)] = i
 
         for fut in as_completed(futures):
@@ -99,6 +117,7 @@ def run_pipeline(input_path="/input/tasks.json", output_path="/output/results.js
                 results[i] = {"task_id": tasks[i]["task_id"], "answer": ""}
 
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+
     with open(output_path, "w") as f:
         json.dump(results, f, indent=2)
 

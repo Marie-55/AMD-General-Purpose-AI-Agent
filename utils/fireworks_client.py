@@ -21,13 +21,17 @@ from openai import OpenAI
 
 class FireworksClient:
     def __init__(self):
-        self.api_key = os.environ.get("FIREWORKS_API_KEY", "")
-        self.base_url = os.environ.get("FIREWORKS_BASE_URL", "https://api.fireworks.ai/inference/v1")
-        if not self.api_key:
+        try:
+            self.api_key = os.environ["FIREWORKS_API_KEY"]
+            self.base_url = os.environ["FIREWORKS_BASE_URL"]
+        except KeyError as exc:
+            name = exc.args[0]
             raise RuntimeError(
-                "FIREWORKS_API_KEY is not set. The harness injects this at eval time; "
-                "for local dev testing, export your own dev key into the same env var."
-            )
+                f"{name} is not set. The Track 1 harness injects FIREWORKS_API_KEY, "
+                "FIREWORKS_BASE_URL, and ALLOWED_MODELS at evaluation time. For local "
+                "development, export your own values in the shell before running; do not "
+                "bundle a .env file or hardcode them in the image."
+            ) from exc
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
 
     def call(self, model, messages, max_tokens=400, temperature=0.2, timeout=25):
@@ -74,7 +78,7 @@ class FireworksClient:
             metrics["total_latency_ms"] = round((t_end - t_sent) * 1000, 1)
             return answer, metrics
 
-        except Exception as e:  # noqa: BLE001 - always want a metrics record, even on failure
+        except Exception as e:
             metrics["error"] = str(e)
             metrics["request_end_ts"] = time.time()
             metrics["total_latency_ms"] = round((metrics["request_end_ts"] - t_sent) * 1000, 1)
