@@ -18,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from categories.classifier import classify
 from categories.normalizer import normalize_prompt
-from categories.routing import route, CODE_EXEC_CATEGORIES, get_allowed_models
+from categories.routing import route, CODE_EXEC_CATEGORIES, get_allowed_models, resolve_roles
 from categories.code_exec import build_codegen_messages, extract_code, run_code_safely
 from categories.metrics import MetricsCollector
 
@@ -93,6 +93,15 @@ def run_pipeline(input_path="/input/tasks.json", output_path="/output/results.js
     if client is None:
         from utils.fireworks_client import FireworksClient
         client = FireworksClient()
+
+    # One-time cascade: probe every candidate model concurrently, cache
+    # which ones actually respond, and route the rest of the run off that.
+    # Cheap (max_tokens=1 per probe) and fast (parallel, not sequential).
+    resolved_roles, health = resolve_roles(client)
+    print("Role resolution (this run):", file=sys.stderr)
+    for role, model in resolved_roles.items():
+        print(f"  {role} -> {model}", file=sys.stderr)
+    print("Model health:", {m: ("UP" if ok else "DOWN") for m, ok in health.items()}, file=sys.stderr)
 
     metrics = MetricsCollector()
     results = [None] * len(tasks)

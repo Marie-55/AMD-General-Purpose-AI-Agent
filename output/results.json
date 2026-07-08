@@ -1,0 +1,86 @@
+[
+  {
+    "task_id": "t1",
+    "answer": "The CAP theorem, proposed by Eric Brewer, states that a distributed data store can only simultaneously guarantee two of the following three properties: **Consistency** (all nodes see the same data at the same time), **Availability** (every request receives a response, even if some nodes fail), and **Partition tolerance** (the system continues operating despite network partitions between nodes).\n\nSince network partitions are inevitable in real distributed systems, partition tolerance is essentially non-negotiable, forcing a tradeoff between consistency and availability. During a partition, a system must either reject writes to keep all replicas consistent (sacrificing availability, as in traditional RDBMS) or accept writes on both sides and reconcile later (sacrificing strict consistency, as in Dynamo-style systems). This isn't a permanent binary choice\u2014systems like Spanner or Cosmos DB dynamically adjust their position along this spectrum based on configuration and conditions."
+  },
+  {
+    "task_id": "t2",
+    "answer": "Albert Einstein proposed the theory of general relativity, publishing it in 1915. He presented the final form of his field equations to the Prussian Academy of Sciences on November 25, 1915. The theory revolutionized our understanding of gravity by describing it as the curvature of spacetime caused by mass and energy."
+  },
+  {
+    "task_id": "t3",
+    "answer": "Ocean tides are primarily caused by the gravitational pull of the Moon and, to a lesser extent, the Sun on Earth's oceans. As Earth rotates, the Moon's gravity creates a bulge of water on the side facing the Moon and a corresponding bulge on the opposite side due to inertia, producing two high tides and two low tides each day. The Sun's gravity also influences tides, and when the Sun, Moon, and Earth align, it creates especially strong \"spring tides,\" while perpendicular alignments produce weaker \"neap tides.\""
+  },
+  {
+    "task_id": "t4",
+    "answer": "29.00"
+  },
+  {
+    "task_id": "t5",
+    "answer": "84.0"
+  },
+  {
+    "task_id": "t6",
+    "answer": "16000"
+  },
+  {
+    "task_id": "t7",
+    "answer": "negative. The reviewer expresses clear dissatisfaction with delayed delivery, damaged packaging, and unmet expectations regarding value."
+  },
+  {
+    "task_id": "t8",
+    "answer": "Positive \u2014 the reviewer praises the meal as one of the best of the year and compliments the staff's attentive yet unobtrusive service."
+  },
+  {
+    "task_id": "t9",
+    "answer": "Mixed: The negative experience of constant crashes is balanced by the positive experience of fast customer support and a full refund."
+  },
+  {
+    "task_id": "t10",
+    "answer": "The city council approved a three-year plan to expand the light rail network by 12 kilometers, adding six new stations that will connect the eastern suburbs to downtown and reduce peak-hour car commute times by up to 20 minutes."
+  },
+  {
+    "task_id": "t11",
+    "answer": "Researchers have developed a new battery coating that cuts charging time by nearly 40% while maintaining long-term capacity over 500 charge cycles. However, the higher manufacturing cost remains a barrier to widespread adoption."
+  },
+  {
+    "task_id": "t12",
+    "answer": "Viral video of cliffside trail boosts tourism in coastal town, prompting officials to impose visitor caps to protect fragile terrain."
+  },
+  {
+    "task_id": "t13",
+    "answer": "[{\"text\": \"Dr. Amina Belkacem\", \"type\": \"PERSON\"}, {\"text\": \"International Conference on Machine Learning\", \"type\": \"ORG\"}, {\"text\": \"Vienna\", \"type\": \"LOCATION\"}, {\"text\": \"July 3rd, 2026\", \"type\": \"DATE\"}, {\"text\": \"ENSIA\", \"type\": \"ORG\"}]"
+  },
+  {
+    "task_id": "t14",
+    "answer": "[\n  {\"text\": \"Microsoft\", \"type\": \"ORG\"},\n  {\"text\": \"Tuesday\", \"type\": \"DATE\"},\n  {\"text\": \"Cairo\", \"type\": \"LOCATION\"},\n  {\"text\": \"September\", \"type\": \"DATE\"},\n  {\"text\": \"Youssef Hariri\", \"type\": \"PERSON\"}\n]"
+  },
+  {
+    "task_id": "t15",
+    "answer": "[{\"text\": \"United Nations\", \"type\": \"ORG\"}, {\"text\": \"Geneva\", \"type\": \"LOCATION\"}, {\"text\": \"last March\", \"type\": \"DATE\"}, {\"text\": \"Antonio Guterres\", \"type\": \"PERSON\"}]"
+  },
+  {
+    "task_id": "t16",
+    "answer": ""
+  },
+  {
+    "task_id": "t17",
+    "answer": "The bug is that the recursive call uses `(a % b, b)` instead of `(b, a % b)`, causing infinite recursion when `a < b`.\n\n```python\ndef gcd(a, b):\n    if b == 0:\n        return a\n    else:\n        return gcd(b, a % b)\n```"
+  },
+  {
+    "task_id": "t18",
+    "answer": "**Reasoning:**\n\n- **Yasmine** owns the **bird** (clue 4).\n- Since Sara doesn't own the cat (clue 1) and Yasmine owns the bird, **Sara must own the dog**.\n- The dog owner lives in **Oran** (clue 2), so **Sara lives in Oran**.\n- **Karim lives in Constantine** (clue 3), which leaves **Algiers** for Yasmine.\n- The only pet left is the **cat**, which must belong to **Karim**.\n\n**Answer:** Karim owns the cat and lives in Constantine."
+  },
+  {
+    "task_id": "t19",
+    "answer": "**Seating arrangement (left to right):**\n\n| Seat 1 | Seat 2 | Seat 3 | Seat 4 |\n|--------|--------|--------|--------|\n| **D**  | **A**  | **B**  | **C**  |\n\n**Reasoning:**\n- From clue 3: D is in seat 1.\n- From clue 1: A must be in seat 2 or 3.\n- From clue 2: B and C must occupy two consecutive seats with B immediately left of C.\n- The remaining seats are 2, 3, and 4. If A were in seat 3, then B and C would need to fill seats 2 and 4 \u2014 but those aren't adjacent, violating clue 2. So A must be in seat 2, leaving B in seat 3 and C in seat 4.\n\n**Final answer: D=1, A=2, B=3, C=4.**"
+  },
+  {
+    "task_id": "t20",
+    "answer": "```python\ndef filter_primes(numbers):\n    def is_prime(n):\n        if n < 2:\n            return False\n        if n in (2, 3):\n            return True\n        if n % 2 == 0:\n            return False\n        for i in range(3, int(n**0.5) + 1, 2):\n            if n % i == 0:\n                return False\n        return True\n    \n    return [n for n in numbers if is_prime(n)]\n```"
+  },
+  {
+    "task_id": "t21",
+    "answer": "```python\ndef merge_intervals(intervals):\n    if not intervals:\n        return []\n\n    intervals.sort(key=lambda x: x[0])\n    merged = [intervals[0]]\n\n    for start, end in intervals[1:]:\n        last_start, last_end = merged[-1]\n        if start <= last_end:\n            merged[-1][1] = max(last_end, end)\n        else:\n            merged.append([start, end])\n\n    return merged\n```"
+  }
+]

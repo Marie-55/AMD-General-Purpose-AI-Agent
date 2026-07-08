@@ -1,0 +1,9 @@
+tests/
+test.py
+input/
+output/
+README.md
+.git
+__pycache__/
+*.pyc
+.env

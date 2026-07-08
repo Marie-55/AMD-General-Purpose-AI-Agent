@@ -50,6 +50,12 @@ def main() -> None:
     print(f"Results written to: {args.output}")
     print(json.dumps(results, indent=2))
 
+    errors = metrics.error_records()
+    if errors:
+        print("ERROR: One or more Fireworks calls failed. Check the error messages above.", file=sys.stderr)
+        print("Most common causes: wrong FIREWORKS_API_KEY, wrong FIREWORKS_BASE_URL, or ALLOWED_MODELS values that Fireworks does not recognize for your account.", file=sys.stderr)
+        sys.exit(2)
+
 
 if __name__ == "__main__":
     main()

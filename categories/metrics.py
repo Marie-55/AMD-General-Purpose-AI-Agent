@@ -77,6 +77,9 @@ class MetricsCollector:
             "by_category": by_cat,
         }
 
+    def error_records(self):
+        return [r for r in self.records if r.get("error")]
+
     def print_report(self):
         s = self.summary()
         print("=" * 64)
@@ -88,6 +91,13 @@ class MetricsCollector:
         print("-- by category --")
         for cat, d in s["by_category"].items():
             print(f"  {cat:20s} count={d['count']:3d}  tokens={d['tokens']:6d}  avg_latency_ms={d['avg_latency_ms']}")
+        errors = self.error_records()
+        if errors:
+            print("-- errors (first 10) --")
+            for r in errors[:10]:
+                msg = str(r.get("error") or "")
+                msg = msg.replace("\n", " ")[:500]
+                print(f"  task_id={r.get('task_id')} model={r.get('model')} path={r.get('path')} error={msg}")
         print("=" * 64)
 
     def print_per_call_table(self, limit=None):
