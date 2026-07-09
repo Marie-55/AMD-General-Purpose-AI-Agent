@@ -1,0 +1,86 @@
+[
+  {
+    "task_id": "t1",
+    "answer": "The CAP theorem states that a distributed data store can simultaneously provide only two out of three guarantees: **Consistency** (all nodes see the same data at the same time), **Availability** (every request receives a response), and **Partition tolerance** (the system keeps operating despite network failures between nodes).\n\nA system cannot satisfy all three because network partitions are inevitable in real distributed systems\u2014messages can be lost, delayed, or nodes can become unreachable. When a partition occurs, the system faces an unavoidable trade-off: it must either reject requests to maintain consistency (sacrificing availability, as in CP systems like HBase) or return potentially stale data to remain available (sacrificing consistency, as in AP systems like Cassandra). Since partition tolerance is essentially mandatory for any real distributed system, the practical choice is really between consistency and availability during failures."
+  },
+  {
+    "task_id": "t2",
+    "answer": "Albert Einstein proposed the theory of general relativity, publishing it in 1915. The foundational paper, \"Die Feldgleichungen der Gravitation\" (The Field Equations of Gravitation), appeared in the Proceedings of the Prussian Academy of Sciences in November of that year."
+  },
+  {
+    "task_id": "t3",
+    "answer": "Ocean tides are primarily caused by the gravitational pull of the Moon and, to a lesser extent, the Sun on Earth's oceans. As Earth rotates, the Moon's gravity creates a bulge of water on the side facing the Moon, with a corresponding bulge on the opposite side due to inertia, producing the regular rise and fall of sea levels roughly twice a day."
+  },
+  {
+    "task_id": "t4",
+    "answer": "Cost of 6 notebooks:  \n6 \u00d7 $3.50 = $21.00\n\nChange from $50:  \n$50.00 \u2212 $21.00 = $29.00\n\nAnswer: $29.00"
+  },
+  {
+    "task_id": "t5",
+    "answer": "84.0"
+  },
+  {
+    "task_id": "t6",
+    "answer": "After 20 hours, there are **16,000 bacteria**.\n\nThe population doubles 5 times (20 \u00f7 4 = 5), so: 500 \u00d7 2\u2075 = 500 \u00d7 32 = 16,000."
+  },
+  {
+    "task_id": "t7",
+    "answer": "\"The sentiment of the text is mixed. The user is disappointed with the delayed delivery and the damaged packaging, but they also mention the price, which could be a factor in their dissatisfaction. The justification for this answer is that the user is expressing both negative and neutral sentiments towards the product and the company.\""
+  },
+  {
+    "task_id": "t8",
+    "answer": "(positive) The text is positive because the reviewer expresses a positive sentiment about the meal they had, mentioning that it was one of the best they've had this year. They also mention that the staff were attentive without being pushy, which indicates a positive interaction with the staff."
+  },
+  {
+    "task_id": "t9",
+    "answer": "<label>: mixed\n<reason>: The app crashes constantly, but the quick response from customer support and the full refund indicate a positive aspect of the situation."
+  },
+  {
+    "task_id": "t10",
+    "answer": "The city council approved a three-year plan to expand the light rail network by 12 kilometers, adding six new stations that will connect the eastern suburbs to downtown and reduce peak-hour car commute times by up to 20 minutes."
+  },
+  {
+    "task_id": "t11",
+    "answer": "Researchers have developed a new battery coating that cuts charging time by nearly 40% while maintaining long-term capacity, showing no degradation over 500 test cycles. However, the coating's higher manufacturing cost remains a barrier to widespread adoption."
+  },
+  {
+    "task_id": "t12",
+    "answer": "Viral video boosts tourism at coastal town's cliffside trail; officials impose visitor caps to protect fragile terrain."
+  },
+  {
+    "task_id": "t13",
+    "answer": "[{\"text\": \"Dr. Amina Belkacem\", \"type\": \"PERSON\"}, {\"text\": \"presented\", \"type\": \"VERB\"}, {\"text\": \"her\", \"type\": \"PRON\"}, {\"text\": \"findings\", \"type\": \"NOUN\"}, {\"text\": \"at\", \"type\": \"PREP\"}, {\"text\": \"the\", \"type\": \"DET\"}, {\"text\": \"International\", \"type\": \"ADJ\"}, {\"text\": \"Conference\", \"type\": \"NOUN\"}, {\"text\": \"on\", \"type\": \"PREP\"}, {\"text\": \"machine\", \"type\": \"NOUN\"}, {\"text\": \"learning\", \"type\": \"NOUN\"}, {\"text\": \"in\", \"type\": \"PREP\"}, {\"text\": \"Vienna\", \"type\": \"NOUN\"}, {\"text\": \"on\", \"type\": \"PREP\"}, {\"text\": \"July\", \"type\": \"ADJ\"}, {\"text\": \"3rd\", \"type\": \"NUM\"}, {\"text\": \"2026\", \"type\": \"NUM\"}, {\"text\": \",\", \"type\": \"PUNCT\"}, {\"text\": \"representing\", \"type\": \"VERB\"}, {\"text\": \"ENSIA\", \"type\": \"NOUN\"}, {\"text\": \".\", \"type\": \"PUNCT\"}]"
+  },
+  {
+    "task_id": "t14",
+    "answer": "[]"
+  },
+  {
+    "task_id": "t15",
+    "answer": "Here are the entities with their types:\n\n- **The United Nations** \u2014 Organization (ORG)\n- **Geneva** \u2014 Location (LOC)\n- **last March** \u2014 Date/Time (DATE)\n- **Secretary-General Antonio Guterres** \u2014 Person (PERSON)"
+  },
+  {
+    "task_id": "t16",
+    "answer": ""
+  },
+  {
+    "task_id": "t17",
+    "answer": "The bug is that the recursive call passes `(a % b, b)` instead of `(b, a % b)`.\n\n```python\ndef gcd(a, b):\n    if b == 0:\n        return a\n    else:\n        return gcd(b, a % b)\n\n\"\"\"\nInput:\n    a: A nonnegative int\n    b: A nonnegative int\n\nGreatest Common Divisor\n\nPrecondition:\n    isinstance(a, int) and isinstance(b, int)\n\nOutput:\n    The greatest int that divides evenly into a and b\n\nExample:\n    >>> gcd(35, 21)\n    7\n\n\"\"\"\n```"
+  },
+  {
+    "task_id": "t18",
+    "answer": "**Reasoning:**\n\n- Clue 4: Yasmine owns the bird.\n- Clue 1: Sara doesn't own the cat \u2192 Sara owns the dog.\n- Clue 2: The dog owner lives in Oran \u2192 Sara lives in Oran.\n- Clue 3: Karim lives in Constantine.\n- That leaves Yasmine in Algiers.\n- The only pet left is the cat, so Karim owns the cat.\n\n**Answer:** Karim owns the cat and lives in Constantine."
+  },
+  {
+    "task_id": "t19",
+    "answer": "**Reasoning:**\n\n- From clue 3: **D is in seat 1**.\n- From clue 1: A must be in seat 2 or seat 3.\n- From clue 2: B is"
+  },
+  {
+    "task_id": "t20",
+    "answer": "```python\ndef filter_primes(numbers):\n    def is_prime(n):\n        if n < 2:\n            return False\n        if n < 4:\n            return True\n        if n % 2 == 0:\n            return False\n        for i in range(3, int(n**0.5) + 1, 2):\n            if n % i == 0:\n                return False\n        return True\n    return [n for n in numbers if is_prime(n)]\n```\n\nExample: `filter_primes([3, 4, 7, 8, 11, 13, 16])` \u2192 `[3, 7, 11, 13]`. The helper `is_prime` checks divisibility only up to \u221an (skipping even factors after 2) for efficiency, and the list comprehension preserves the original order."
+  },
+  {
+    "task_id": "t21",
+    "answer": "```python\ndef merge_intervals(intervals):\n    if not intervals:\n        return []\n    intervals = sorted(intervals, key=lambda x: x[0])\n    merged = [intervals[0][:]\n    for start, end in intervals[1:]:\n        if start <= merged[-1][1]:\n            merged[-1][1] = max(merged[-1][1], end)\n        else:\n            merged.append([start, end])\n    return merged\n```\n\n**How it works:** Sort by start time so overlapping intervals are adjacent, then sweep through once. If the next interval's start is at or before the current merged interval's end, extend it (using `max` to handle cases like `[1,5]` and `[2,3]`). Otherwise, start a new merged interval. Runs in `O(n log n)` time due to sorting."
+  }
+]

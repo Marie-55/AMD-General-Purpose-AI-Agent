@@ -67,7 +67,10 @@ CATEGORY_ROLE = {
     "logic_puzzle": "reasoning_specialist",
 }
 
-CODE_EXEC_CATEGORIES = {"math_reasoning", "logic_puzzle"}
+# math_reasoning: generate Python script → run locally → Fireworks NL fallback.
+# logic_puzzle: skip code-exec entirely, go directly to Fireworks NL reasoning.
+CODE_EXEC_CATEGORIES = {"math_reasoning"}
+LOGIC_NL_CATEGORIES  = {"logic_puzzle"}
 
 # Populated once by resolve_roles(); route() reads from this cache.
 _RESOLVED_ROLE_MODEL = {}

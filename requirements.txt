@@ -1,1 +1,10 @@
+# Fireworks / OpenAI-compatible API
 openai>=1.40.0,<2
+
+# Local GGUF inference (CPU-only build installed in Dockerfile)
+# llama-cpp-python is installed via pip in the Dockerfile with CMAKE flags
+# so we don't list it here to avoid a double-install with wrong flags.
+
+# Prompt compression (TF-IDF)
+scikit-learn>=1.4.0,<2
+numpy>=1.26.0,<3

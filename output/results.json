@@ -1,86 +1,162 @@
 [
   {
     "task_id": "t1",
-    "answer": "The CAP theorem, proposed by Eric Brewer, states that a distributed data store can only simultaneously guarantee two of the following three properties: **Consistency** (all nodes see the same data at the same time), **Availability** (every request receives a response, even if some nodes fail), and **Partition tolerance** (the system continues operating despite network partitions between nodes).\n\nSince network partitions are inevitable in real distributed systems, partition tolerance is essentially non-negotiable, forcing a tradeoff between consistency and availability. During a partition, a system must either reject writes to keep all replicas consistent (sacrificing availability, as in traditional RDBMS) or accept writes on both sides and reconcile later (sacrificing strict consistency, as in Dynamo-style systems). This isn't a permanent binary choice\u2014systems like Spanner or Cosmos DB dynamically adjust their position along this spectrum based on configuration and conditions."
+    "answer": "Raft elects a leader to simplify consensus: instead of coordinating among all nodes (as in Paxos), all log replication and decisions flow through a single leader, making the protocol easier to reason about and implement while ensuring logs are appended in a consistent order. During network partitions, Raft maintains consistency by requiring that any committed log entry must be replicated to a **majority quorum** of nodes, so a minority partition cannot elect a new leader or commit new entries. Each election uses monotonically increasing **terms** so that when the partition heals, the stale leader from the minority steps down, and the surviving leader forces the others to reconcile their logs by discarding uncommitted entries from the old term. This guarantees the safety property that all nodes agree on the same sequence of committed commands, even if some messages are lost or delayed."
   },
   {
     "task_id": "t2",
-    "answer": "Albert Einstein proposed the theory of general relativity, publishing it in 1915. He presented the final form of his field equations to the Prussian Academy of Sciences on November 25, 1915. The theory revolutionized our understanding of gravity by describing it as the curvature of spacetime caused by mass and energy."
+    "answer": "# Why \"Compression Always Reduces File Size\" Is False\n\nThe statement is false for several important reasons:\n\n## 1. Already-Compressed Data\nMost compression algorithms work by finding and exploiting **redundancy and patterns** in data. Files that have already been compressed (e.g., JPEG images, MP3 audio, MP4 video, ZIP archives) have had this redundancy removed. Attempting to compress them again typically yields **no reduction \u2014 or even a slight increase** due to added format overhead (headers, dictionaries, metadata).\n\n## 2. Random or Encrypted Data\nData with high entropy \u2014 such as cryptographic ciphertext, random number files, or already-shuffled data \u2014 contains **no exploitable patterns**. By definition, random data cannot be meaningfully compressed; the output will be roughly the same size (or larger) than the input.\n\n## 3. Small Files\nCompression formats carry overhead (headers, tables, dictionaries). For very small files, this overhead can **exceed** the savings, producing a larger output file.\n\n## 4. Theoretical Limits\nShannon's information theory and Kolmogorov complexity establish that there is a **mathematical lower bound** on how much any given string of data can be compressed. Incompressible strings exist for every compression algorithm.\n\n## 5. Lossy Compression Trade-offs\nLossy methods (JPEG, MP3) *do* reduce size, but only by **permanently discarding information**. This isn't \"free\" reduction \u2014 it's a deliberate sacrifice of fidelity, which contradicts the implicit assumption that compression is purely beneficial.\n\n## Concrete Example\nTry this: take a JPEG photo"
   },
   {
     "task_id": "t3",
-    "answer": "Ocean tides are primarily caused by the gravitational pull of the Moon and, to a lesser extent, the Sun on Earth's oceans. As Earth rotates, the Moon's gravity creates a bulge of water on the side facing the Moon and a corresponding bulge on the opposite side due to inertia, producing two high tides and two low tides each day. The Sun's gravity also influences tides, and when the Sun, Moon, and Earth align, it creates especially strong \"spring tides,\" while perpendicular alignments produce weaker \"neap tides.\""
+    "answer": "Think of a web browser: each tab runs as its own **process** with isolated memory, so if one tab crashes, the others keep running unaffected. Inside a single tab, multiple **threads** share the same memory space to handle rendering, JavaScript execution, and network requests concurrently. Processes are heavier to create and communicate via mechanisms like IPC or sockets, while threads are lightweight and share data directly\u2014but a buggy thread can corrupt the shared memory and crash the entire process."
   },
   {
     "task_id": "t4",
-    "answer": "29.00"
+    "answer": "142.8"
   },
   {
     "task_id": "t5",
-    "answer": "84.0"
+    "answer": "600"
   },
   {
     "task_id": "t6",
-    "answer": "16000"
+    "answer": "Step 1: Use the compound interest formula:  \nA = P(1 + r)^t = 15,000 \u00d7 (1.08)^4\n\nStep 2: Calculate (1.08)^4:  \n1.08^2 = 1.1664  \n1.08^4 = 1.1664 \u00d7 1.1664 = 1.36048896\n\nStep 3: Multiply by the principal:  \n15,000 \u00d7 1.36048896 = 20,407.3344\n\nStep 4: Round to the nearest cent: $20,407.33\n\nAnswer: $20,407.33"
   },
   {
     "task_id": "t7",
-    "answer": "negative. The reviewer expresses clear dissatisfaction with delayed delivery, damaged packaging, and unmet expectations regarding value."
+    "answer": "mixed"
   },
   {
     "task_id": "t8",
-    "answer": "Positive \u2014 the reviewer praises the meal as one of the best of the year and compliments the staff's attentive yet unobtrusive service."
+    "answer": "positive"
   },
   {
     "task_id": "t9",
-    "answer": "Mixed: The negative experience of constant crashes is balanced by the positive experience of fast customer support and a full refund."
+    "answer": "positive"
   },
   {
     "task_id": "t10",
-    "answer": "The city council approved a three-year plan to expand the light rail network by 12 kilometers, adding six new stations that will connect the eastern suburbs to downtown and reduce peak-hour car commute times by up to 20 minutes."
-  },
-  {
-    "task_id": "t11",
-    "answer": "Researchers have developed a new battery coating that cuts charging time by nearly 40% while maintaining long-term capacity over 500 charge cycles. However, the higher manufacturing cost remains a barrier to widespread adoption."
-  },
-  {
-    "task_id": "t12",
-    "answer": "Viral video of cliffside trail boosts tourism in coastal town, prompting officials to impose visitor caps to protect fragile terrain."
-  },
-  {
-    "task_id": "t13",
-    "answer": "[{\"text\": \"Dr. Amina Belkacem\", \"type\": \"PERSON\"}, {\"text\": \"International Conference on Machine Learning\", \"type\": \"ORG\"}, {\"text\": \"Vienna\", \"type\": \"LOCATION\"}, {\"text\": \"July 3rd, 2026\", \"type\": \"DATE\"}, {\"text\": \"ENSIA\", \"type\": \"ORG\"}]"
-  },
-  {
-    "task_id": "t14",
-    "answer": "[\n  {\"text\": \"Microsoft\", \"type\": \"ORG\"},\n  {\"text\": \"Tuesday\", \"type\": \"DATE\"},\n  {\"text\": \"Cairo\", \"type\": \"LOCATION\"},\n  {\"text\": \"September\", \"type\": \"DATE\"},\n  {\"text\": \"Youssef Hariri\", \"type\": \"PERSON\"}\n]"
-  },
-  {
-    "task_id": "t15",
-    "answer": "[{\"text\": \"United Nations\", \"type\": \"ORG\"}, {\"text\": \"Geneva\", \"type\": \"LOCATION\"}, {\"text\": \"last March\", \"type\": \"DATE\"}, {\"text\": \"Antonio Guterres\", \"type\": \"PERSON\"}]"
-  },
-  {
-    "task_id": "t16",
     "answer": ""
   },
   {
+    "task_id": "t11",
+    "answer": "Scientists monitoring a remote volcano have detected increased seismic activity and gas emissions over several weeks, prompting nearby villages to begin evacuation drills while authorities continuously monitor the situation, though no eruption has yet occurred."
+  },
+  {
+    "task_id": "t12",
+    "answer": "- A startup developed biodegradable packaging made from seaweed.\n- The packaging fully decomposes within six weeks.\n- Several grocery chains have launched pilot programs, though manufacturing costs exceed those of conventional plastic."
+  },
+  {
+    "task_id": "t13",
+    "answer": "[{\"text\": \"Sofia Ramirez\", \"type\": \"PERSON\"}, {\"text\": \"ETH Zurich\", \"type\": \"LOCATION\"}]"
+  },
+  {
+    "task_id": "t14",
+    "answer": "[{\"text\": \"Microsoft\", \"type\": \"ORG\"}, {\"text\": \"Seattle\", \"type\": \"LOCATION\"}, {\"text\": \"Satya Nadella\", \"type\": \"PERSON\"}, {\"text\": \"Azure AI services\", \"type\": \"ORG\"}]"
+  },
+  {
+    "task_id": "t15",
+    "answer": "[{\"text\": \"UNICEF\", \"type\": \"ORG\"}, {\"text\": \"University of Cape Town\", \"type\": \"ORG\"}, {\"text\": \"South Africa\", \"type\": \"LOCATION\"}]"
+  },
+  {
+    "task_id": "t16",
+    "answer": "Strings do not have a `.reverse()` method; use slicing `s[::-1]` instead.\n\n```python\ndef is_palindrome(s):\n    s = s.lower().replace(\" \", \"\")\n    return s == s[::-1]\n```"
+  },
+  {
     "task_id": "t17",
-    "answer": "The bug is that the recursive call uses `(a % b, b)` instead of `(b, a % b)`, causing infinite recursion when `a < b`.\n\n```python\ndef gcd(a, b):\n    if b == 0:\n        return a\n    else:\n        return gcd(b, a % b)\n```"
+    "answer": "The bug is that `m` is initialized to `0` instead of a value from the list, so it fails for all-positive inputs.\n\n```python\ndef min_value(nums):\n    m = nums[0]\n    for x in nums:\n        if x < m:\n            m = x\n    return m\n```"
   },
   {
     "task_id": "t18",
-    "answer": "**Reasoning:**\n\n- **Yasmine** owns the **bird** (clue 4).\n- Since Sara doesn't own the cat (clue 1) and Yasmine owns the bird, **Sara must own the dog**.\n- The dog owner lives in **Oran** (clue 2), so **Sara lives in Oran**.\n- **Karim lives in Constantine** (clue 3), which leaves **Algiers** for Yasmine.\n- The only pet left is the **cat**, which must belong to **Karim**.\n\n**Answer:** Karim owns the cat and lives in Constantine."
+    "answer": "`text.split(\"\")` is invalid because Python does not allow an empty string separator.\n\n```python\ndef count_words(text):\n    return len(text.split())\n```"
   },
   {
     "task_id": "t19",
-    "answer": "**Seating arrangement (left to right):**\n\n| Seat 1 | Seat 2 | Seat 3 | Seat 4 |\n|--------|--------|--------|--------|\n| **D**  | **A**  | **B**  | **C**  |\n\n**Reasoning:**\n- From clue 3: D is in seat 1.\n- From clue 1: A must be in seat 2 or 3.\n- From clue 2: B and C must occupy two consecutive seats with B immediately left of C.\n- The remaining seats are 2, 3, and 4. If A were in seat 3, then B and C would need to fill seats 2 and 4 \u2014 but those aren't adjacent, violating clue 2. So A must be in seat 2, leaving B in seat 3 and C in seat 4.\n\n**Final answer: D=1, A=2, B=3, C=4.**"
+    "answer": ""
   },
   {
     "task_id": "t20",
-    "answer": "```python\ndef filter_primes(numbers):\n    def is_prime(n):\n        if n < 2:\n            return False\n        if n in (2, 3):\n            return True\n        if n % 2 == 0:\n            return False\n        for i in range(3, int(n**0.5) + 1, 2):\n            if n % i == 0:\n                return False\n        return True\n    \n    return [n for n in numbers if is_prime(n)]\n```"
+    "answer": ""
   },
   {
     "task_id": "t21",
-    "answer": "```python\ndef merge_intervals(intervals):\n    if not intervals:\n        return []\n\n    intervals.sort(key=lambda x: x[0])\n    merged = [intervals[0]]\n\n    for start, end in intervals[1:]:\n        last_start, last_end = merged[-1]\n        if start <= last_end:\n            merged[-1][1] = max(last_end, end)\n        else:\n            merged.append([start, end])\n\n    return merged\n```"
+    "answer": "Looking at this problem, I need to find an arrangement of 5 books (Red, Blue, Green, Yellow, Black) that satisfies all three constraints.\n\n**Setting up positions** (top to bottom: 1, 2, 3, 4, 5):\n\n**Constraint 3:** Blue is immediately above Black \u2192 they form an adjacent pair (Blue, Black).\n\n**Constraint 1:** Red is above Blue \u2192 Red must be placed higher than Blue.\n\n**Constraint 2:** Green is below Yellow \u2192 Yellow must be placed higher than Green.\n\n**Trying Blue at position 2, Black at position 3:**\n- Red must be above Blue \u2192 Red at position 1 \u2713\n- Remaining: Yellow and Green at positions 4 and 5\n- Yellow must be above Green \u2192 Yellow at 4, Green at 5 \u2713\n\n**Verification:**\n- Red (1) above Blue (2) \u2713\n- Green (5) below Yellow (4) \u2713\n- Blue (2) immediately above Black (3) \u2713\n\n**Valid ordering (top to bottom):** Red, Blue, Black, Yellow, Green"
+  },
+  {
+    "task_id": "t22",
+    "answer": "Here is a simple, order-preserving way to do it. Because dictionaries are unhashable, we keep a list of already-seen dictionaries and use Python\u2019s built-in dictionary equality check (`==`) to detect duplicates.\n\n```python\ndef remove_duplicate_dicts(dict_list):\n    \"\"\"\n    Return a new list with duplicate dictionaries removed, preserving the\n    original order of first appearance.\n\n    Two dictionaries are considered duplicates if they are equal (same\n    keys and values). Dictionary equality ignores insertion order.\n    \"\"\"\n    seen = []\n    result = []\n\n    for d in dict_list:\n        if d not in seen:\n            seen.append(d)\n            result.append(d)\n\n    return result\n\n\n# Example usage\ndata = [\n    {\"id\": 1, \"name\": \"Alice\"},\n    {\"id\": 2, \"name\": \"Bob\"},\n    {\"id\": 1, \"name\": \"Alice\"},   # duplicate of the first dict\n    {\"name\": \"Alice\", \"id\": 1},   # also duplicate (dict equality ignores order)\n    {\"id\": 3, \"name\": \"Charlie\"},\n]\n\nunique = remove_duplicate_dicts(data)\nprint(unique)\n```\n\nOutput:\n\n```python\n[\n    {'id': 1, 'name': 'Alice'},"
+  },
+  {
+    "task_id": "t23",
+    "answer": "Here is a clean implementation. It first removes duplicates, sorts the distinct values in descending order, and then returns the element at position `k-1`.\n\n```python\ndef kth_largest_distinct(nums, k):\n    \"\"\"\n    Return the kth largest distinct element in `nums`.\n    \n    Parameters:\n        nums (list): A list of comparable elements.\n        k (int): The rank of the desired element (1-based).\n    \n    Returns:\n        The kth largest distinct element, or None if it does not exist.\n    \"\"\"\n    # Validate inputs\n    if not nums or k < 1:\n        return None\n\n    # Get distinct values, sort descending\n    distinct = sorted(set(nums), reverse=True)\n\n    # Check if k is within range\n    if k > len(distinct):\n        return None\n\n    return distinct[k - 1]\n\n\n# Example usage\nif __name__ == \"__main__\":\n    data = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]\n\n    print(kth_largest_distinct(data, 1))  # 9  (largest)\n    print(kth_largest_distinct(data, 2))  # 6  (second largest)\n    print(kth_largest_distinct(data, 3))  # 5  (third largest)\n    print(kth_largest_distinct(data, 10)) # None (not enough distinct values)\n```\n\n### How it works\n1. `set(nums)` removes duplicate values.\n2. `sorted(..., reverse=True)` orders the distinct values from largest to smallest.\n3. `distinct[k - 1]` gives the `k`th largest because Python lists are 0-indexed.\n\n### Edge cases handled\n- Empty list \u2192 returns `None`\n- `k < 1` \u2192 returns `None`\n- `k` larger than the number of distinct elements \u2192 returns `None`\n\nIf you prefer an exception instead of `None` for invalid `k`, you can replace the `return None` cases with `raise ValueError(...)`."
+  },
+  {
+    "task_id": "t24",
+    "answer": "Here is a Python function that normalizes both strings by lowercasing them and stripping out anything that is not a letter or digit, then compares the character counts.\n\n```python\nfrom collections import Counter\n\ndef are_anagrams(s1, s2):\n    \"\"\"\n    Return True if s1 and s2 are anagrams of each other,\n    ignoring punctuation, whitespace, and capitalization.\n    \"\"\"\n    def normalize(s):\n        # Keep only letters/digits and convert to lowercase\n        return ''.join(ch.lower() for ch in s if ch.isalnum())\n\n    return Counter(normal"
+  },
+  {
+    "task_id": "t25",
+    "answer": "DNS caching improves performance by storing recently resolved domain-to-IP mappings locally (in browsers, operating systems, or recursive resolvers), eliminating the need to repeat the full hierarchical lookup process for repeated requests, which reduces latency and offloads traffic from authoritative name servers. However, this same caching creates consistency issues because cached records persist according to their TTL (Time To Live) value, meaning clients may continue to receive stale IP addresses after a domain's actual mapping has changed\u2014such as during server migrations, failovers, or DDoS mitigation\u2014causing users to be directed to outdated or unavailable servers until the cache expires or is manually flushed."
+  },
+  {
+    "task_id": "t26",
+    "answer": "16"
+  },
+  {
+    "task_id": "t27",
+    "answer": "negative"
+  },
+  {
+    "task_id": "t28",
+    "answer": "Engineers completed a bridge retrofit to withstand stronger earthquakes while minimizing traffic disruptions during construction."
+  },
+  {
+    "task_id": "t29",
+    "answer": "[{\"text\": \"Prime Minister\", \"type\": \"PERSON\"}, {\"text\": \"Keir Starmer\", \"type\": \"PERSON\"}, {\"text\": \"President\", \"type\": \"PERSON\"}, {\"text\": \"Emmanuel Macron\", \"type\": \"PERSON\"}, {\"text\": \"London\", \"type\": \"LOCATION\"}, {\"text\": \"10 January 2026\", \"type\": \"DATE\"}]"
+  },
+  {
+    "task_id": "t30",
+    "answer": "The bug is that `len` is used without calling it on `nums`.\n\n```python\ndef average(nums):\n    return sum(nums)/len(nums)\n```"
+  },
+  {
+    "task_id": "t31",
+    "answer": "# Answer: Inspect the box labeled **\"Mixed\"**\n\n## Reasoning\n\nSince every label is wrong, the true contents must be:\n- Box labeled \"Apples\" \u2192 contains only Oranges\n- Box labeled \"Oranges\" \u2192 contains Mixed fruit\n- Box labeled \"Mixed\" \u2192 contains only Apples\n\n## Why the \"Mixed\" box?\n\nThe box labeled \"Mixed\" is the only box whose contents can be **deduced from a single fruit**, because we already know it *cannot* contain a mix (the label is wrong). So whatever fruit you pull out must be the *only* type in that box.\n\n**Case 1:** You pull out an **apple**.\n- \"Mixed\" box = all Apples\n- \"Apples\" box can't be apples \u2192 must be all Oranges\n- \"Oranges\" box = Mixed \u2713\n\n**Case 2:** You pull out an **orange**.\n- \"Mixed\" box = all Oranges\n- \"Oranges\" box can't be oranges \u2192 must be all Apples\n- \"Apples\" box = Mixed \u2713\n\nEither way, one inspection identifies all three boxes.\n\n## Why not the other boxes?\n\nIf you inspected the \"Apples\" box, you'd pull out an orange and know that box is all oranges \u2014 but you'd still face ambiguity between the remaining two boxes (which one is mixed vs. all apples?). The \"Mixed\" box is uniquely informative because its label rules out the mixed possibility entirely.\n\n**Final answer: Choose the box labeled \"Mixed\" first.**"
+  },
+  {
+    "task_id": "t32",
+    "answer": "Here is a clean, two-pointer approach to merge two already-sorted lists into one sorted list. It runs in **O(n + m)** time and does not use Python\u2019s built-in `sort()` or `sorted()`.\n\n```python\ndef merge_sorted_lists(list1, list2):\n    \"\"\"\n    Merge two sorted lists into a single sorted list.\n    Assumes both input lists are sorted in ascending order.\n    \"\"\"\n    merged = []\n    i, j = 0, 0\n\n    # Compare elements from both lists and append the smaller one\n    while i < len(list1) and j < len(list2):\n        if list1[i] <= list2[j]:\n            merged.append(list1[i])\n            i += 1\n        else:\n            merged.append(list2[j])\n            j += 1\n\n    # Append any remaining elements from list1\n    while i < len(list1):\n        merged.append(list1[i])\n        i += 1\n\n    # Append any remaining elements from list2\n    while j < len(list2):\n        merged.append(list2[j])\n        j += 1\n\n    return merged\n\n\n# Example usage\na = [1, 3, 5, 7]\nb = [2, 4, 6, 8]\nprint(merge_sorted_lists(a, b))  # [1, 2, 3, 4, 5, 6, 7, 8]\n```\n\n### How it works\n1. Start two index pointers at the beginning of each list.\n2. Compare the current elements and copy the smaller one into the result.\n3. Move the pointer of the list that contributed the element.\n4. When one list is exhausted, copy the rest of the other list over.\n\nThis preserves duplicates and works correctly even if one or both input lists are empty."
+  },
+  {
+    "task_id": "t33",
+    "answer": "HTTP is stateless because each request-response cycle is independent\u2014the server treats every request as a new interaction with no memory of previous ones, which simplifies protocol design and improves scalability. To maintain sessions, web applications use mechanisms like **cookies** (small data stored in the browser sent with each request), **session IDs** (unique tokens stored server-side linked to user data), or **tokens** like JWTs (self-contained credentials verified per request). When a user logs in, the server generates a session identifier, sends it to the client, and recognizes it on subsequent requests to retrieve the associated user state."
+  },
+  {
+    "task_id": "t34",
+    "answer": "156"
+  },
+  {
+    "task_id": "t35",
+    "answer": "negative"
+  },
+  {
+    "task_id": "t36",
+    "answer": "Researchers developed a drone-based wildlife monitoring system that can identify endangered species in dense forests with minimal human intervention."
+  },
+  {
+    "task_id": "t37",
+    "answer": "[{\"text\": \"Elon Musk\", \"type\": \"PERSON\"}, {\"text\": \"Indian Institute of Technology Delhi\", \"type\": \"ORG\"}, {\"text\": \"3 March 2025\", \"type\": \"DATE\"}]"
+  },
+  {
+    "task_id": "t38",
+    "answer": "The base case for `n == 0` returns 0 instead of 1, making every factorial result 0.\n\n```python\ndef factorial(n):\n    if n == 0:\n        return 1\n    return n * factorial(n - 1)\n```"
+  },
+  {
+    "task_id": "t39",
+    "answer": ""
+  },
+  {
+    "task_id": "t40",
+    "answer": "Here is a clean implementation. It iterates through the input list once, placing each string into a bucket keyed by its length. Using `defaultdict(list)` avoids manual key initialization, and converting to `dict` before returning gives a plain dictionary.\n\n```python\nfrom collections import defaultdict\nfrom typing import List, Dict\n\ndef group_by_length(strings: List[str]) -> Dict[int, List[str]]:\n    \"\"\"\n    Group strings by their length.\n\n    Args:\n        strings: A list of strings.\n\n    Returns:\n        A dictionary mapping each length to a list of strings of that length.\n    \"\"\"\n    grouped: Dict[int, List[str]] = defaultdict(list)\n    for s in strings:\n        grouped[len(s)].append(s)\n    return dict(grouped)\n\n\n# Example usage\nif __name__ == \"__main__\":\n    words = [\"apple\", \"bat\", \"cat\", \"dog\", \"elephant\", \"ant\"]\n    print(group_by_length(words))\n    # Output: {5: ['apple'], 3: ['bat', 'cat', 'dog'], 8: ['elephant'], 3: ['ant']}\n    # Note: 'ant' is grouped with the other length-3 words.\n```\n\n**Key points:**\n- Time complexity is **O(n)**, where *n*"
   }
 ]

@@ -1,0 +1,4 @@
+# This file keeps the models/ directory tracked by git.
+# The actual .gguf weight files are listed in .gitignore and must be
+# downloaded locally by running:  python setup_local_models.py
+# They are then bundled into the Docker image via:  COPY models/ /app/models/

@@ -1,0 +1,22 @@
+# Local dev secrets — never commit
+.env
+
+# Downloaded model weights — too large for git, bundled into Docker at build time
+models/*.gguf
+models/*.bin
+models/*.safetensors
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Output from local test runs
+output/results.json
+
+# Editor / OS
+.DS_Store
+.vscode/
+*.swp
