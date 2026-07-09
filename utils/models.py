@@ -19,11 +19,22 @@ class TaskCategory(str, Enum):
     UNKNOWN = "unknown"
 
 
+class ExecutionTier(str, Enum):
+    RULES = "rules"
+    LOCAL_MODEL = "local_model"
+    FIREWORKS = "fireworks"
+
+
 @dataclass(frozen=True)
 class RuntimeConfig:
     api_key: str
     base_url: str
     allowed_models: list[str]
+    local_model_path: Path | None = None
+    local_model_enabled: bool = False
+    local_model_n_ctx: int = 2048
+    local_model_n_threads: int = 2
+    local_model_max_tokens: int = 192
     input_path: Path = Path("/input/tasks.json")
     output_path: Path = Path("/output/results.json")
     max_workers: int = 4

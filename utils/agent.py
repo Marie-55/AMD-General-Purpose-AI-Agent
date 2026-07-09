@@ -6,8 +6,10 @@ from time import perf_counter
 
 from categories.router import TaskRouter
 from categories.solvers import CategorySolvers
+from utils.execution_policy import choose_execution_plan
 from utils.fireworks import FireworksClient, MockFireworksClient
-from utils.models import RuntimeConfig, Task, TaskExecutionStats, TaskResult, UsageTotals
+from utils.local_model import LocalModelClient
+from utils.models import ExecutionTier, RuntimeConfig, Task, TaskExecutionStats, TaskResult, UsageTotals
 from utils.reporting import RunSummary, build_run_summary
 from utils.sandbox import ExecutionSandbox
 from utils.task_io import read_tasks, write_results
@@ -29,22 +31,37 @@ class TrackOneAgent:
         self.config = config
         self.usage = usage or UsageTotals()
         self.client = client or FireworksClient(config)
+        self.local_client = LocalModelClient.from_config(config)
         self.sandbox = sandbox or ExecutionSandbox(timeout_s=config.sandbox_timeout_s)
         self.router = router or TaskRouter(self.client, config, self.usage)
-        self.solvers = solvers or CategorySolvers(self.client, config, self.sandbox, self.usage)
+        self.solvers = solvers or CategorySolvers(self.client, config, self.sandbox, self.local_client, self.usage)
 
     def solve_task_with_stats(self, task: Task) -> tuple[TaskResult, TaskExecutionStats]:
         local_usage = UsageTotals()
         router = TaskRouter(self.client, self.config, local_usage)
-        solvers = CategorySolvers(self.client, self.config, self.sandbox, local_usage)
+        solvers = CategorySolvers(self.client, self.config, self.sandbox, self.local_client, local_usage)
         started = perf_counter()
         decision = router.route(task.prompt)
         error: str | None = None
         try:
-            answer = solvers.solve(task, decision.category)
+            plan = choose_execution_plan(
+                decision.category,
+                task.prompt,
+                local_model_available=self.local_client.available,
+            )
+            if plan.tier == ExecutionTier.FIREWORKS:
+                answer = solvers.solve(task, decision.category, allow_remote=True, prefer_local_model=False)
+            elif plan.tier == ExecutionTier.LOCAL_MODEL:
+                answer = solvers.solve(task, decision.category, allow_remote=False, prefer_local_model=True)
+                if not answer.strip():
+                    answer = solvers.solve(task, decision.category, allow_remote=True, prefer_local_model=False)
+            else:
+                answer = solvers.solve(task, decision.category, allow_remote=False, prefer_local_model=False)
+                if not answer.strip() and decision.category not in {"sentiment", "ner"}:
+                    answer = solvers.solve(task, decision.category, allow_remote=True, prefer_local_model=False)
         except Exception as exc:
             error = str(exc)
-            answer = solvers.solve_fallback(task, error=exc)
+            answer = solvers.solve_fallback(task, error=exc, allow_remote=True)
         elapsed_ms = (perf_counter() - started) * 1000.0
         self.usage.add(local_usage.prompt_tokens, local_usage.completion_tokens)
         result = TaskResult(task_id=task.task_id, answer=answer)

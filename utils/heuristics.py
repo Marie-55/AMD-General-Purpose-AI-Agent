@@ -15,8 +15,19 @@ CATEGORY_ORDER = [
 ]
 
 CATEGORY_HINTS: dict[TaskCategory, tuple[str, ...]] = {
-    TaskCategory.SUMMARY: ("summarise", "summarize", "summary", "condense", "one sentence", "shorten", "briefly"),
-    TaskCategory.SENTIMENT: ("sentiment", "positive", "negative", "neutral", "opinion", "tone"),
+    TaskCategory.SUMMARY: (
+        "summarise",
+        "summarize",
+        "summary",
+        "condense",
+        "one sentence",
+        "2-sentence",
+        "2 sentence",
+        "no more than",
+        "shorten",
+        "briefly",
+    ),
+    TaskCategory.SENTIMENT: ("sentiment", "positive/negative", "positive", "negative", "neutral", "review", "passage", "opinion", "tone"),
     TaskCategory.NER: (
         "named entity",
         "entities",
@@ -36,9 +47,32 @@ CATEGORY_HINTS: dict[TaskCategory, tuple[str, ...]] = {
         "traceback",
         "error in this code",
     ),
-    TaskCategory.CODE: ("write a function", "implement", "code that", "generate code", "complete the function", "write code"),
+    TaskCategory.CODE: (
+        "write a function",
+        "python function",
+        "implement this in python",
+        "implement",
+        "code that",
+        "generate code",
+        "complete the function",
+        "write code",
+    ),
     TaskCategory.LOGIC: ("constraint", "puzzle", "deductive", "must satisfy", "all conditions", "arrangement", "logic puzzle"),
-    TaskCategory.MATH: ("calculate", "compute", "percentage", "how many", "word problem", "arithmetic", "projection", "multi-step"),
+    TaskCategory.MATH: (
+        "calculate",
+        "compute",
+        "percentage",
+        "average speed",
+        "change",
+        "pays with",
+        "doubles every",
+        "how many",
+        "word problem",
+        "arithmetic",
+        "projection",
+        "multi-step",
+        "step by step",
+    ),
     TaskCategory.FACTUAL: ("what is", "what are", "define", "explain", "how does", "why does", "difference between"),
 }
 
@@ -74,6 +108,8 @@ def classify_heuristically(prompt: str) -> RouteDecision:
     second_score = ordered[1][1] if len(ordered) > 1 else 0
 
     if best_score == 0:
+        if "?" in text:
+            return RouteDecision(TaskCategory.FACTUAL.value, 0.55, "heuristic-question")
         return RouteDecision(TaskCategory.UNKNOWN.value, 0.0, "heuristic-none")
 
     confidence = min(0.95, 0.35 + 0.15 * best_score + 0.10 * max(0, best_score - second_score))
@@ -88,16 +124,17 @@ def rank_models(models: list[str], role: str) -> list[str]:
             ("minimax", 0),
             ("kimi-k2p7-code", 1),
             ("kimi", 2),
+            ("e4b", 3),
             ("gemma-4-26b-a4b-it", 3),
             ("gemma-4-31b-it-nvfp4", 4),
             ("gemma-4-31b-it", 5),
         ]
         if role in LOW_COST_ROLES
         else [
-            ("kimi-k2p7-code", 0),
-            ("gemma-4-31b-it-nvfp4", 1),
-            ("gemma-4-31b-it", 2),
-            ("gemma-4-26b-a4b-it", 3),
+            ("e4b", 0),
+            ("gemma-4", 1),
+            ("gemma", 2),
+            ("kimi-k2p7-code", 3),
             ("kimi", 4),
             ("minimax", 5),
         ]

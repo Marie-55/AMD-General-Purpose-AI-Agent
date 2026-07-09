@@ -3,10 +3,22 @@ from __future__ import annotations
 from utils.heuristics import CATEGORY_ORDER, classify_heuristically, is_retryable_model_error, rank_models
 from utils.models import RouteDecision, RuntimeConfig, TaskCategory, UsageTotals
 from utils.parsing import parse_json_loose
+from utils.prompting import compact_task_prompt
 
 
 class TaskRouter:
     """Route tasks with a cheap heuristic first, then a minimal model fallback."""
+
+    CATEGORY_THRESHOLDS = {
+        TaskCategory.FACTUAL.value: 0.55,
+        TaskCategory.SUMMARY.value: 0.60,
+        TaskCategory.SENTIMENT.value: 0.55,
+        TaskCategory.NER.value: 0.55,
+        TaskCategory.MATH.value: 0.60,
+        TaskCategory.CODE.value: 0.60,
+        TaskCategory.DEBUGGING.value: 0.60,
+        TaskCategory.LOGIC.value: 0.75,
+    }
 
     def __init__(self, client, config: RuntimeConfig, usage: UsageTotals | None = None):
         self.client = client
@@ -19,16 +31,15 @@ class TaskRouter:
 
     def route(self, prompt: str) -> RouteDecision:
         heuristic = classify_heuristically(prompt)
-        if heuristic.category != TaskCategory.UNKNOWN.value and heuristic.confidence >= 0.70:
+        threshold = self.CATEGORY_THRESHOLDS.get(heuristic.category, 0.70)
+        if heuristic.category != TaskCategory.UNKNOWN.value and heuristic.confidence >= threshold:
             return heuristic
         return self._llm_route(prompt, heuristic)
 
     def _llm_route(self, prompt: str, heuristic: RouteDecision | None = None) -> RouteDecision:
         categories = ", ".join(category.value for category in CATEGORY_ORDER)
-        system = (
-            "You are a strict router for a hackathon AI agent. "
-            "Classify the task into exactly one category and return JSON only."
-        )
+        system = "Route the task to one category and return JSON only."
+        compact_prompt = compact_task_prompt(prompt, category="router", budget_chars=600)
         user_parts = [
             f"Available categories: {categories}.",
             "Return JSON with keys category, confidence, reason.",
@@ -39,7 +50,7 @@ class TaskRouter:
                 f"Heuristic guess: {heuristic.category} (confidence {heuristic.confidence:.2f})."
             )
         user_parts.append("Task prompt:")
-        user_parts.append(prompt)
+        user_parts.append(compact_prompt)
 
         last_error: Exception | None = None
         for model in rank_models(self.config.allowed_models, "router"):
@@ -51,7 +62,7 @@ class TaskRouter:
                         {"role": "user", "content": "\n\n".join(user_parts)},
                     ],
                     temperature=0.0,
-                    max_tokens=96,
+                    max_tokens=64,
                 )
                 self._record_usage(usage)
                 break

@@ -7,7 +7,16 @@ from .models import Task, TaskResult
 
 
 def read_tasks(path: Path) -> list[Task]:
-    data = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        raw_text = path.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(f"Input file not found: {path}") from exc
+
+    try:
+        data = json.loads(raw_text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Malformed JSON in input file {path}: {exc}") from exc
+
     tasks: list[Task] = []
     for item in data:
         if not isinstance(item, dict):

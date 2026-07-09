@@ -3,10 +3,15 @@ from __future__ import annotations
 from pathlib import Path
 
 from categories.router import TaskRouter
+from categories.solvers import CategorySolvers
 from utils.agent import TrackOneAgent
+from utils.execution_policy import choose_execution_plan
 from utils.heuristics import classify_heuristically, pick_model
+from utils.local_solvers import local_math_answer, local_ner_answer, local_sentiment_answer
+from utils.models import ExecutionTier
 from utils.models import RuntimeConfig, Task, TaskCategory
 from utils.parsing import parse_json_loose
+from utils.prompting import compress_prompt
 from utils.sandbox import ExecutionSandbox
 from utils.task_io import read_tasks, write_results
 
@@ -40,6 +45,29 @@ class FallbackClient:
             raise RuntimeError("404 model not found")
         text = '{"category":"factual","confidence":0.9,"reason":"fallback"}' if any("available categories" in m.get("content", "") for m in messages) else "Paris"
         return text, (4, 1), {"choices": [{"message": {"content": text}}], "usage": {"prompt_tokens": 4, "completion_tokens": 1}}
+
+
+class FakeLocalClient:
+    def __init__(self, response: str):
+        self.response = response
+        self.calls = []
+        self.enabled = True
+
+    @property
+    def available(self):
+        return True
+
+    def chat_completion(self, model, messages, *, temperature=0.0, max_tokens=None, top_p=None, endpoint="chat/completions"):
+        self.calls.append(
+            {
+                "model": model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "endpoint": endpoint,
+            }
+        )
+        return self.response, (0, 0), {"choices": [{"message": {"content": self.response}}]}
 
 
 def make_config(tmp_path: Path) -> RuntimeConfig:
@@ -81,6 +109,55 @@ def test_model_picker_prefers_low_cost_model():
     )
     assert pick_model(config, "router") == "minimax-m3"
     assert pick_model(config, "code") == "kimi-k2p7-code"
+
+
+def test_execution_policy_routes_small_factual_to_local_model():
+    plan = choose_execution_plan("factual", "What is AMD?", local_model_available=True)
+    assert plan.tier == ExecutionTier.LOCAL_MODEL
+
+
+def test_execution_policy_routes_code_to_fireworks():
+    plan = choose_execution_plan("code_generation", "Write a function that sorts numbers.", local_model_available=True)
+    assert plan.tier == ExecutionTier.FIREWORKS
+
+
+def test_prompt_compression_keeps_question_and_trims_filler():
+    prompt = "Please carefully summarize the following text for context. What is AMD?"
+    compressed = compress_prompt(prompt, category="factual", budget_chars=40)
+    assert "what is amd" in compressed.text.lower()
+    assert len(compressed.text) <= 40
+
+
+def test_local_sentiment_solver_returns_json():
+    result = local_sentiment_answer("I love this excellent product.")
+    payload = parse_json_loose(result)
+    assert payload["label"] == "positive"
+
+
+def test_local_ner_solver_finds_dates():
+    result = local_ner_answer("OpenAI was founded on December 11, 2015.")
+    payload = parse_json_loose(result)
+    assert payload["entities"][0]["type"] == "date"
+
+
+def test_local_math_solver_evaluates_expression():
+    assert local_math_answer("What is 2 + 3 * 4?") == "14"
+
+
+def test_local_model_is_used_for_short_factual_answers(tmp_path):
+    config = RuntimeConfig(
+        api_key="k",
+        base_url="https://example.com",
+        allowed_models=["minimax-m3"],
+        local_model_enabled=True,
+        input_path=tmp_path / "tasks.json",
+        output_path=tmp_path / "results.json",
+    )
+    fake_local = FakeLocalClient("AMD is a semiconductor company.")
+    solvers = CategorySolvers(client=FallbackClient(), config=config, sandbox=ExecutionSandbox(timeout_s=5), local_client=fake_local)
+    answer = solvers.solve_factual(Task(task_id="t1", prompt="What is AMD?"), allow_remote=False, prefer_local_model=True)
+    assert "semiconductor" in answer.lower()
+    assert fake_local.calls
 
 
 def test_agent_runs_with_fake_client(tmp_path):
