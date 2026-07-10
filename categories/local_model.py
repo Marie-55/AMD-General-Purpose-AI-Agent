@@ -311,13 +311,58 @@ _SENTIMENT_STRIP_RE = re.compile(
 )
 
 
-def run_sentiment(prompt: str, model: LocalModelSingleton) -> str:
-    """
-    Classify the sentiment of the text embedded in *prompt*.
+def _heuristic_sentiment_label(text: str) -> str:
+    """Keyword-based sentiment guess. Used ONLY as a last-resort fallback
+    when the local LLM call fails or returns something unusable — never
+    as the primary classifier, since it can't detect sarcasm, negation,
+    or vocabulary outside its small hardcoded term lists."""
+    lowered = re.sub(r"[^a-z0-9\s]", " ", text.lower())
+    tokens = lowered.split()
+    if not tokens:
+        return ""
 
-    Returns a single sentence that starts with the label (positive,
-    negative, or neutral) and includes one short justification.
-    """
+    pos = sum(lowered.count(term) for term in _POSITIVE_TERMS)
+    neg = sum(lowered.count(term) for term in _NEGATIVE_TERMS)
+
+    contrast_idx = -1
+    for term in _SENTIMENT_CONTRAST_TERMS:
+        if term in tokens:
+            contrast_idx = max(contrast_idx, tokens.index(term))
+
+    if contrast_idx > 0:
+        pre = " ".join(tokens[:contrast_idx])
+        post = " ".join(tokens[contrast_idx + 1 :])
+        pos = sum(pre.count(term) for term in _POSITIVE_TERMS) + 2 * sum(post.count(term) for term in _POSITIVE_TERMS)
+        neg = sum(pre.count(term) for term in _NEGATIVE_TERMS) + 2 * sum(post.count(term) for term in _NEGATIVE_TERMS)
+
+    if pos == 0 and neg == 0:
+        return "neutral"
+    if pos > 0 and neg > 0 and abs(pos - neg) <= 1:
+        return "neutral"
+    return "negative" if neg > pos else "positive"
+
+
+def _heuristic_sentiment_sentence(label: str, text: str) -> str:
+    lowered = re.sub(r"[^a-z0-9\s]", " ", text.lower())
+    pos_terms = [term for term in _POSITIVE_TERMS if term in lowered]
+    neg_terms = [term for term in _NEGATIVE_TERMS if term in lowered]
+
+    if label == "positive":
+        detail = (
+            f"it emphasizes {' and '.join(pos_terms[:2])}"
+            if pos_terms else "the overall tone is favorable"
+        )
+    elif label == "negative":
+        detail = (
+            f"it emphasizes {' and '.join(neg_terms[:2])}"
+            if neg_terms else "the overall tone is unfavorable"
+        )
+    else:
+        detail = "it balances praise and criticism or stays mostly even"
+    return f"{label}: {detail}."
+
+
+def run_sentiment(prompt: str, model: LocalModelSingleton) -> str:
     system = (
         "Classify the sentiment of the text. "
         "Reply with exactly one sentence starting with positive, negative, or neutral. "
@@ -325,84 +370,39 @@ def run_sentiment(prompt: str, model: LocalModelSingleton) -> str:
         "No bullets, no extra sentences, and no markdown."
     )
 
-    # Strip preamble first, then fall back to the full prompt.
     cleaned = _SENTIMENT_STRIP_RE.sub("", prompt).strip()
     if not cleaned:
         cleaned = prompt.strip()
 
     prompt_str = _build_chatml(system, cleaned)
 
-    def _heuristic_label(text: str) -> str:
-        lowered = re.sub(r"[^a-z0-9\s]", " ", text.lower())
-        tokens = lowered.split()
-        if not tokens:
-            return ""
-
-        pos = sum(lowered.count(term) for term in _POSITIVE_TERMS)
-        neg = sum(lowered.count(term) for term in _NEGATIVE_TERMS)
-
-        contrast_idx = -1
-        for term in _SENTIMENT_CONTRAST_TERMS:
-            if term in tokens:
-                contrast_idx = max(contrast_idx, tokens.index(term))
-
-        if contrast_idx > 0:
-            pre = " ".join(tokens[:contrast_idx])
-            post = " ".join(tokens[contrast_idx + 1 :])
-            pos = sum(pre.count(term) for term in _POSITIVE_TERMS) + 2 * sum(post.count(term) for term in _POSITIVE_TERMS)
-            neg = sum(pre.count(term) for term in _NEGATIVE_TERMS) + 2 * sum(post.count(term) for term in _NEGATIVE_TERMS)
-
-        if pos == 0 and neg == 0:
-            return "neutral"
-        if pos > 0 and neg > 0 and abs(pos - neg) <= 1:
-            return "neutral"
-        return "negative" if neg > pos else "positive"
-
-    def _sentiment_sentence(label: str, text: str) -> str:
-        lowered = re.sub(r"[^a-z0-9\s]", " ", text.lower())
-        pos_terms = [term for term in _POSITIVE_TERMS if term in lowered]
-        neg_terms = [term for term in _NEGATIVE_TERMS if term in lowered]
-
-        if label == "positive":
-            detail = (
-                f"it emphasizes {' and '.join(pos_terms[:2])}"
-                if pos_terms else "the overall tone is favorable"
-            )
-        elif label == "negative":
-            detail = (
-                f"it emphasizes {' and '.join(neg_terms[:2])}"
-                if neg_terms else "the overall tone is unfavorable"
-            )
-        else:
-            detail = "it balances praise and criticism or stays mostly even"
-        return f"{label}: {detail}."
-
-    heuristic = _heuristic_label(cleaned)
-    if heuristic:
-        return _sentiment_sentence(heuristic, cleaned)
-
     try:
         raw = model.generate(
             prompt_str,
-            max_tokens=10,          # label is at most 1 word (8 chars)
-            temperature=0.0,        # deterministic
-            stop=["\n", ":", ".", ",", " "],  # stop at first whitespace/punct
+            max_tokens=60,
+            temperature=0.1,
+            stop=["\n"],
         )
-        label = raw.strip().lower().rstrip(".:,")
-        # Normalise any near-miss to one of the three valid labels.
-        if label.startswith("pos"):
-            return _sentiment_sentence("positive", cleaned)
-        if label.startswith("neg"):
-            return _sentiment_sentence("negative", cleaned)
-        if label.startswith("mix") or label.startswith("neu"):
-            return _sentiment_sentence("neutral", cleaned)
-        # Fallback: return whatever the model said (non-empty) so the
-        # caller doesn't fall through to Fireworks unnecessarily.
-        return label if label else _sentiment_sentence("neutral", cleaned)
+        candidate = raw.strip()
+        if candidate.lower().startswith(("pos", "neg", "neu", "mix")):
+            return candidate
+        # Extract label from anywhere in the sentence
+        import re as _re
+        m = _re.search(r"\b(positive|negative|neutral|mixed)\b", candidate, _re.IGNORECASE)
+        if m:
+            label_word = m.group(1).lower()
+            after = candidate[m.end():].strip(" .,;:")
+            justification = after if after else candidate
+            return f"{label_word}: {justification}"
+        logger.warning(
+            "run_sentiment: model output didn't start with a valid label, "
+            "falling back to heuristic: %r", candidate[:80],
+        )
     except Exception as exc:
-        logger.error("run_sentiment inference failed: %s", exc)
-        return _sentiment_sentence(heuristic or "neutral", cleaned)
+        logger.error("run_sentiment inference failed, falling back to heuristic: %s", exc)
 
+    heuristic = _heuristic_sentiment_label(cleaned) or "neutral"
+    return _heuristic_sentiment_sentence(heuristic, cleaned)
 
 def run_factual(prompt: str, model: LocalModelSingleton) -> str:
     """Answer factual knowledge prompts directly with the local model."""
@@ -446,6 +446,29 @@ def run_summarization(prompt: str, model: LocalModelSingleton) -> str:
         return raw.strip()
     except Exception as exc:
         logger.error("run_summarization inference failed: %s", exc)
+        return ""
+
+def run_logic(prompt: str, model: LocalModelSingleton) -> str:
+    """Solve logic/deductive reasoning puzzles with the local model."""
+    system = (
+        "You are a logical reasoning expert. "
+        "Work through the clues one by one, eliminating options as you go. "
+        "End your answer with a single line starting with 'Answer:' followed "
+        "by the complete solution in plain language. "
+        "No code, no markdown, no bullet points — just clear reasoning and the answer."
+    )
+    prompt_str = _build_chatml(system, prompt.strip())
+
+    try:
+        raw = model.generate(
+            prompt_str,
+            max_tokens=400,
+            temperature=0.1,
+            stop=["\n\n\n"],
+        )
+        return raw.strip()
+    except Exception as exc:
+        logger.error("run_logic inference failed: %s", exc)
         return ""
 
 

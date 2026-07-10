@@ -15,6 +15,7 @@ to the whole run, not one per task.
 """
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import sys
 
 
 def get_allowed_models():
@@ -42,8 +43,16 @@ ROLE_CANDIDATE_TIERS = {
         ["minimax-m3", "minimax"],
     ],
     "quality_general": [
-        ["gemma-4-31b-it"],
+        ["gemma-4-31b-it", "a4b"],
         ["minimax-m3", "minimax"],
+    ],
+    # Summarization: try the cheapest quantised model first, escalate to the
+    # full-precision Gemma if the answer is poor, then fall through to minimax.
+    # Tier order MUST be cheapest → best so route() and route_summarization_fallback()
+    # both traverse in the right direction.
+    "summarization": [
+        ["gemma-4-26b-a4b-it"],   # tier-1: cheapest
+        ["minimax-m3"],         # tier-2: always-on safety net
     ],
     # code categories: no cheaper substitute makes sense here, so a single
     # tier -- if the code specialist is down we want the direct-answer
@@ -54,17 +63,26 @@ ROLE_CANDIDATE_TIERS = {
     "reasoning_specialist": [
         ["minimax"],
     ],
+    # In ROLE_CANDIDATE_TIERS, ADD this new role:
+"ner_general": [
+    ["gemma-4-26b-a4b-it", "a4b"],   # non-reasoning model, no budget waste
+    ["minimax-m3", "minimax"],        # fallback if gemma is down
+],
+
+
 }
 
 CATEGORY_ROLE = {
     "sentiment": "cheap_general",
     "factual_knowledge": "cheap_general",
-    "summarization": "cheap_alt",
-    "ner": "cheap_general",
+    "summarization": "summarization",   # dedicated cascade: gemma-26b → gemma-31b → minimax
+    #"ner": "cheap_general",
     "code_debugging": "code_specialist",
     "code_generation": "code_specialist",
     "math_reasoning": "code_specialist",
     "logic_puzzle": "reasoning_specialist",
+    # In CATEGORY_ROLE, CHANGE ner line:
+    "ner": "ner_general",   # was "cheap_general"
 }
 
 # math_reasoning: generate Python script → run locally → Fireworks NL fallback.
@@ -135,6 +153,23 @@ def resolve_roles(client, allowed=None, timeout=6.0):
                 break
         _RESOLVED_ROLE_MODEL[role] = chosen or allowed[0]
 
+    # Explicit, auditable confirmation of the skip-unhealthy-tiers behavior --
+    # makes it obvious in logs whether a role's top-choice model was actually
+    # used, or silently skipped because the health probe marked it down.
+    for role in roles_needed:
+        tiers = per_role_tier_models[role]
+        top_choice = tiers[0] if tiers else None
+        resolved = _RESOLVED_ROLE_MODEL[role]
+        if top_choice and top_choice != resolved:
+            print(
+                f"[routing] {role}: top-choice model '{top_choice}' is DOWN -- "
+                f"routing directly to '{resolved}', skipping it entirely for all tasks this run.",
+                file=sys.stderr,
+            )
+    # Build the ordered summarization cascade from *all* matching models
+    # (regardless of health) so the fallback path can walk up the tier list.
+    _build_summarization_cascade(allowed)
+
     return dict(_RESOLVED_ROLE_MODEL), dict(_HEALTH_CACHE)
 
 
@@ -150,3 +185,46 @@ def route(category: str) -> str:
         if m:
             return m
     return allowed[0]
+
+
+# Ordered list of resolved models for the summarization cascade.
+# Each call to route_summarization_next(current_model) returns the next
+# healthier/better model in the tier sequence, or None if already at the top.
+_SUMMARIZATION_CASCADE: list = []
+
+
+def _build_summarization_cascade(allowed):
+    """Populate the in-order cascade list from the summarization role tiers."""
+    global _SUMMARIZATION_CASCADE
+    cascade = []
+    for tier in ROLE_CANDIDATE_TIERS.get("summarization", []):
+        m = _match_in_allowed(tier, allowed)
+        if m and m not in cascade:
+            cascade.append(m)
+    _SUMMARIZATION_CASCADE = cascade
+
+
+def route_summarization_next(current_model: str) -> str | None:
+    """Return the next model in the summarization cascade after *current_model*.
+
+    Returns None if current_model is already the last (best) option.
+    Falls back to the full allowed list if the cascade is empty.
+    """
+    cascade = _SUMMARIZATION_CASCADE
+    if not cascade:
+        # resolve_roles wasn't called — build on the fly.
+        try:
+            _build_summarization_cascade(get_allowed_models())
+            cascade = _SUMMARIZATION_CASCADE
+        except RuntimeError:
+            return None
+
+    try:
+        idx = cascade.index(current_model)
+    except ValueError:
+        # current_model isn't in the cascade — start from the beginning.
+        return cascade[0] if cascade else None
+
+    if idx + 1 < len(cascade):
+        return cascade[idx + 1]
+    return None  # already at the best model

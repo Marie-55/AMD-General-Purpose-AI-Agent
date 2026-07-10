@@ -93,33 +93,41 @@ CATEGORY_INSTRUCTIONS = {
         "'Answer: <value>'."
     ),
     "sentiment": (
-        "Reply with ONLY one word: positive, negative, or mixed. "
-        "No explanation, no punctuation, no other text."
+        "Classify the sentiment and reply with exactly ONE sentence. "
+        "Start the sentence with the label (positive, negative, or mixed), "
+        "then briefly justify it in the same sentence. "
+        "No bullets, no extra sentences, no markdown."
     ),
     "summarization": (
         "Answer as concisely and clearly as possible. "
+        "Do not think out loud or show reasoning steps -- respond with only "
+        "the final summary itself, nothing else. "
         "Minimize output tokens while preserving the key meaning. "
         "Do not add preambles or extra commentary. "
         "Never apologize, refuse, or state that you cannot determine an answer."
     ),
+    # In CATEGORY_INSTRUCTIONS, REPLACE the "ner" entry:
     "ner": (
         "Extract named entities as valid JSON only. "
+        "Do NOT reason or think step by step — output the JSON array immediately. "
         "Return a JSON array of objects with keys text and type. "
         "Use labels PERSON, ORG, LOCATION, or DATE. "
         "No markdown, backticks, prose, or extra keys. "
         "If no entities are found, return []."
     ),
     "code_debugging": (
-        "Return valid JSON only. "
-        "Use an object with keys issues and corrected_parts. "
-        "issues must be an array of short strings describing the bug(s). "
-        "corrected_parts must be an array of objects showing only the corrected code snippets, "
-        "with optional location/original fields. "
-        "Do not add markdown or prose."
+        "Explain the bug(s) in plain English, then provide the corrected code. "
+        "Format your response as clean markdown: "
+        "start with a '## Bug Explanation' section describing the issue(s), "
+        "then a '## Corrected Code' section containing the full fixed code in a ```python block. "
+        "Do not wrap your response in JSON. Do not add unnecessary preamble."
     ),
+    # In CATEGORY_INSTRUCTIONS, change:
     "logic_puzzle": (
-        "Reason through the clues and state the final answer clearly. "
-        "Keep the explanation concise and direct."
+        "Do NOT use extended internal reasoning or chain-of-thought. "
+        "Work through the clues briefly in your response, then end with a single line "
+        "starting exactly with 'Answer:' followed by the concrete solution. "
+        "State the answer directly in plain language. No code."
     ),
     "code_generation": (
         "Return the direct code answer only. Do not say anything before it. "
@@ -143,14 +151,14 @@ DEFAULT_INSTRUCTION = "Answer clearly and concisely. Avoid unnecessary preamble.
 #   logic_puzzle       — reasoning trace + final answer; 800 avoids truncation
 #   code_generation    — full function implementation; 1000
 CATEGORY_MAX_TOKENS: dict[str, int] = {
-    "factual_knowledge": 150,
+    "factual_knowledge": 280,
     "math_reasoning":    700,
-    "sentiment":         80,
-    "summarization":    180,
-    "ner":              320,
-    "code_debugging":   1000,
-    "logic_puzzle":     900,
-    "code_generation":  900,
+    "sentiment":         60,
+    "summarization":    500,
+    "ner":              600,  # In CATEGORY_MAX_TOKENS, CHANGE ner:
+    "code_debugging":   1024,
+    "logic_puzzle":     2048,
+    "code_generation":  1024,
 }
 
 DEFAULT_MAX_TOKENS = 600

@@ -1,0 +1,162 @@
+[
+  {
+    "task_id": "t1",
+    "answer": "Raft elects a leader to centralize log replication, avoiding the complexity and conflicts of multi-leader systems like Paxos\u2014a single leader sequences commands and broadcasts entries to followers, ensuring deterministic ordering.\n\nDuring network partitions, Raft maintains consistency by requiring a majority quorum (\u230aN/2"
+  },
+  {
+    "task_id": "t2",
+    "answer": "The statement is false because compression can actually **increase** file size in certain cases. Lossless compression relies on finding patterns or redundancy in data; when applied to already-compressed files, random data, or small inputs"
+  },
+  {
+    "task_id": "t3",
+    "answer": "I could not determine a reliable answer."
+  },
+  {
+    "task_id": "t4",
+    "answer": "First discount: 30% off means you pay 70% of the original price.\n\n\\[\n240 \\times 0.70 = 168\n\\]\n\nSecond discount: 15% off the discounted price means you pay 85% of $168.\n\n\\[\n168 \\times 0.85 = 142.80\n\\]\n\nAnswer: $142.80\n\nAnswer: 142.8"
+  },
+  {
+    "task_id": "t5",
+    "answer": "600"
+  },
+  {
+    "task_id": "t6",
+    "answer": "20407.33"
+  },
+  {
+    "task_id": "t7",
+    "answer": "neutral"
+  },
+  {
+    "task_id": "t8",
+    "answer": "neutral"
+  },
+  {
+    "task_id": "t9",
+    "answer": "neutral"
+  },
+  {
+    "task_id": "t10",
+    "answer": "I could not determine a reliable answer."
+  },
+  {
+    "task_id": "t11",
+    "answer": "Scientists detected heightened seismic activity and gas emissions at a remote volcano, prompting nearby villages to conduct evacuation drills while authorities continue monitoring despite no eruption occurring."
+  },
+  {
+    "task_id": "t12",
+    "answer": "- A startup developed biodegradable packaging made from seaweed.\n- The packaging decomposes within six weeks.\n- Several grocery chains have begun pilot programs, though manufacturing costs remain higher than conventional plastic."
+  },
+  {
+    "task_id": "t13",
+    "answer": "[{\"text\": \"14 February 2026\", \"type\": \"DATE\"}, {\"text\": \"Dr. Sofia Ramirez\", \"type\": \"PERSON\"}, {\"text\": \"NVIDIA\", \"type\": \"ORG\"}, {\"text\": \"ETH Zurich\", \"type\": \"ORG\"}, {\"text\": \"Switzerland\", \"type\": \"LOCATION\"}]"
+  },
+  {
+    "task_id": "t14",
+    "answer": "[{\"text\": \"Microsoft Build 2025\", \"type\": \"ORG\"}, {\"text\": \"Satya Nadella\", \"type\": \"PERSON\"}, {\"text\": \"Azure AI\", \"type\": \"ORG\"}, {\"text\": \"Seattle\", \"type\": \"LOCATION\"}]"
+  },
+  {
+    "task_id": "t15",
+    "answer": "[{\"text\": \"UNICEF\", \"type\": \"ORG\"}, {\"text\": \"University of Cape Town\", \"type\": \"ORG\"}, {\"text\": \"South Africa\", \"type\": \"LOCATION\"}, {\"text\": \"2024\", \"type\": \"DATE\"}]"
+  },
+  {
+    "task_id": "t16",
+    "answer": "## Bug Explanation\n\nThe bug is in the line `return s == s.reverse()`. In Python, **strings do not have a `.reverse()` method** \u2014 that method exists for lists, not for strings. Calling `s.reverse()` on a string will raise an `AttributeError: 'str' object has no attribute 'reverse'`.\n\nTo reverse a string in Python, you should use slicing with `[::-1]`.\n\n## Corrected Code\n\n```python\ndef is_palindrome(s):\n    s = s.lower().replace(\" \", \"\")\n    return s == s[::-1]\n```"
+  },
+  {
+    "task_id": "t17",
+    "answer": "## Bug Explanation\n\nThe variable `m` is initialized to `0`, which assumes the list contains at least one negative or zero value. If all numbers in `nums` are positive, the function incorrectly returns `0` instead of the actual minimum. The fix is to initialize `m` to the first element of the list (or positive infinity) so it can properly track the smallest value.\n\n## Corrected Code\n\n```python\ndef min_value(nums):\n    if not nums:\n        return None\n    m = nums[0]\n    for x in nums:\n        if x < m:\n            m = x\n    return m\n```"
+  },
+  {
+    "task_id": "t18",
+    "answer": "## Bug Explanation\n\nThe bug is in `text.split(\"\")`. In Python, you cannot pass an empty string `\"\"` as the separator to `str.split()` \u2014 it raises a `ValueError: empty separator`. To split a string into words, call `split()` with no arguments, which splits on any whitespace (spaces, tabs, newlines) and automatically ignores leading/trailing/extra whitespace.\n\n## Corrected Code\n\n```python\ndef count_words(text):\n    return len(text.split())\n```"
+  },
+  {
+    "task_id": "t19",
+    "answer": "# Solving the Pet Ownership Puzzle\n\n## Setting Up the Grid\n\n| Person | Cat | Dog | Rabbit |\n|--------|-----|-----|--------|\n| Adam   | ?   | \u2717   | ?      |\n| Bella  | \u2717   | ?   | \u2717      |\n| Chloe  | ?   | ?   | ?      |\n\n## Applying the Clues\n\n**Clue 1:** \"Adam does not"
+  },
+  {
+    "task_id": "t20",
+    "answer": "# Solving the Office Arrangement\n\n**Setup:** 4 offices (1\u20134) for Mia, Omar, Liam, Noah.\n\n## Applying the Clues\n\n**Clue 2 (Liam immediately right of Mia)** restricts Mia to positions 1, 2, or 3:\n\n| Mia's position | Liam's position |\n|---|---|\n| 1 | 2 |\n| 2 | 3 |\n| 3 | 4 |\n\n**Clue 1 (Mia left of Omar)** means Omar must be to the right of Mia.\n\n**Clue 3 (Noah \u2260 office 4)** eliminates any arrangement placing Noah in office 4.\n\n## Testing Each Case\n\n**Case A: Mia=1, Liam=2**\n- Omar must be in 3 or 4.\n- If Omar=3, Noah=4 \u2192 \u274c violates Clue 3.\n- If Omar=4, Noah=3 \u2192 \u2705 **Valid: Mia, Liam, Noah, Omar**\n\n**Case B: Mia=2, Liam=3**\n- Omar must be in 3 or 4, but 3 is taken \u2192 Omar=4, Noah=1.\n- \u2705 **Valid: Noah, Mia, Liam, Omar**\n\n**Case C: Mia=3, Liam=4**\n-"
+  },
+  {
+    "task_id": "t21",
+    "answer": "Looking at this puzzle, I need to find a valid ordering of 5 books (Red, Blue, Green, Yellow, Black) given three constraints.\n\n**Step-by-step reasoning:**\n\nLet me label positions 1 (top) to 5 (bottom).\n\n**Constraint analysis:**\n- **C1:** Red above Blue \u2192 Red's position < Blue's position\n- **C2:** Green below Yellow \u2192 Green's position > Yellow's position\n- **C3:** Blue immediately above Black \u2192 Blue's position = Black's position \u2212 1\n\n**Eliminating options:**\n- Blue cannot be at position 1 (Red must be above it, C1)\n- Blue and Black must be adjacent (C3)\n- So Blue \u2208 {2, 3, 4}\n\n**Trying Blue=2, Black=3:**\n- Red must be above Blue \u2192 Red at position 1\n- Remaining positions 4, 5 for Yellow and Green\n- Green below Yellow (C2) \u2192 Yellow at 4, Green at 5 \u2713\n\nThis gives: **Red, Blue, Black, Yellow, Green** (top to bottom)\n\nLet me verify with a script:\n\n\n\n**Verification of Red, Blue,\n\nAnswer: Number of valid orderings: 6\nFirst valid ordering (top to bottom): ('Red', 'Blue', 'Black', 'Yellow', 'Green')"
+  },
+  {
+    "task_id": "t22",
+    "answer": "```python\ndef remove_duplicate_dicts(lst):\n    seen = set()\n    result = []\n    for d in lst:\n        key = tuple(sorted(d.items()))\n        if key not in seen:\n            seen.add(key)\n            result.append(d)\n    return result\n```"
+  },
+  {
+    "task_id": "t23",
+    "answer": "Here is a clean implementation. It first removes duplicates, sorts the unique values in descending order, and returns the element at position `k-1`.\n\nIf `k` is out of range (less than 1 or greater than the number of distinct elements), it raises a `ValueError`.\n\n```python\ndef kth_largest_distinct(lst, k):\n    \"\"\"\n    Return the kth largest distinct element in lst.\n\n    Parameters\n    ----------\n    lst : list\n        Input list of comparable elements.\n    k : int\n        1-based rank of the desired element among distinct values.\n\n    Returns\n    -------\n    The kth largest distinct element.\n\n    Raises\n    ------\n    ValueError\n        If k is not a valid positive rank for the distinct elements.\n    \"\"\"\n    if not isinstance(k, int):\n        raise TypeError(\"k must be an integer\")\n\n    distinct = list(set(lst))\n    n = len(distinct)\n\n    if k < 1 or k > n:\n        raise ValueError(\n            f\"k must be between 1 and the number of distinct elements ({n}), got {k}\"\n        )\n\n    distinct.sort(reverse=True)\n    return distinct[k - 1]\n\n\n# Example usage\nif __name__ == \"__main__\":\n    data = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]\n\n    print(kth_largest_distinct(data, 1))  # 9  (largest)\n    print(kth_largest_distinct(data, 2))  # 6  (second largest)\n    print(kth_largest_distinct(data, 3))  # 5  (third largest)\n```\n\n### Notes\n- `set(lst)` collapses duplicates, so only distinct values are considered.\n- Sorting in reverse order puts the largest value at index `0`, so the `k`th largest is at index `k - 1`.\n- Time complexity is `O(n log n)` due to sorting, where `n` is the number of distinct elements."
+  },
+  {
+    "task_id": "t24",
+    "answer": "Here is a clean way to do it: keep only the letters, convert them to the same case, and compare their character counts.\n\n```python\nfrom collections import Counter\n\ndef are_anagrams(s1: str, s2: str) -> bool:\n    \"\"\"\n    Return True if s1 and s2 are anagrams, ignoring punctuation and capitalization.\n    \"\"\"\n    # Keep only alphabetic characters and convert to lowercase\n    cleaned1 = [ch.lower() for ch in s1 if ch.isalpha()]\n    cleaned2 = [ch.lower() for ch in s2 if ch.isalpha()]\n\n    return Counter(cleaned1) == Counter(cleaned2)\n\n\n# Examples\nprint(are_anagrams(\"Listen!\", \"Silent\"))      # True\nprint(are_anagrams(\"Hello, World!\", \"world\")) # False\nprint(are_anagrams(\"Astronomer\", \"Moon starer\")) # True\n```\n\nHow it works:\n\n1. `ch.isalpha()` filters out punctuation, spaces, digits, and symbols.\n2. `ch.lower()` normalizes capitalization.\n3. `Counter` counts how many times each letter appears in both strings.\n4. If the two counters are equal, the strings are anagrams.\n\nIf you also want to ignore digits and spaces, the same `isalpha()` check already removes them. If you want to keep digits but only drop punctuation, replace `ch.isalpha()` with `not ch.ispunct()` and optionally keep spaces."
+  },
+  {
+    "task_id": "t25",
+    "answer": "DNS caching improves performance by storing recently resolved domain-to-IP mappings locally, eliminating the need to repeatedly query authoritative DNS servers and reducing lookup latency. However, it creates consistency issues because cached entries persist beyond their TTL (Time To Live), so clients may continue accessing stale IP addresses after a server has moved, failed over, or had its records updated, leading to failed connections or routing to outdated infrastructure until the cache expires."
+  },
+  {
+    "task_id": "t26",
+    "answer": "16"
+  },
+  {
+    "task_id": "t27",
+    "answer": "neutral"
+  },
+  {
+    "task_id": "t28",
+    "answer": "Engineers completed a bridge retrofit to withstand stronger earthquakes while minimizing traffic disruptions during construction."
+  },
+  {
+    "task_id": "t29",
+    "answer": "[{\"text\": \"Keir Starmer\", \"type\": \"PERSON\"}, {\"text\": \"Emmanuel Macron\", \"type\": \"PERSON\"}, {\"text\": \"London\", \"type\": \"LOCATION\"}, {\"text\": \"10 January 2026\", \"type\": \"DATE\"}]"
+  },
+  {
+    "task_id": "t30",
+    "answer": "## Bug Explanation\n\nThe function tries to divide the sum of the numbers by `len`, but `len` is the built-in function object itself, not the length of the list. It should be `len(nums)`. Using `len` without calling it on `nums` will cause a `TypeError` because you cannot divide a number by a function object.\n\n## Corrected Code\n\n```python\ndef average(nums):\n    return sum(nums) / len(nums)\n```"
+  },
+  {
+    "task_id": "t31",
+    "answer": "# Solution\n\n**Choose the box labeled \"Mixed\" first.**\n\n## Reasoning\n\nSince every label is wrong, the box labeled \"Mixed\" cannot contain a mix \u2014 it must contain either all apples or all oranges.\n\n**Step 1: Inspect one fruit from the \"Mixed\" box.**\n\n- **If you pull out an apple** \u2192 the box contains only apples (it can't be mixed). So the \"Mixed\" box = Apples.\n- **If you pull out an orange** \u2192 the box contains only oranges. So the \"Mixed\" box = Oranges.\n\n**Step 2: Deduce the other two boxes from the result.**\n\n*Case A \u2014 \"Mixed\" box is actually Apples:*\n- The box labeled \"Apples\" can't be apples (wrong label) and can't be mixed (the \"Mixed\" box is apples). \u2192 It must be **Oranges**.\n- The remaining box labeled \"Oranges\" must be **Mixed**.\n\n*Case B \u2014 \"Mixed\" box is actually Oranges:*\n- The box labeled \"Oranges\" can't be oranges and can't be mixed. \u2192 It must be **Apples**.\n- The remaining box labeled \"Apples\" must be **Mixed**.\n\n## Why not the other boxes?\n\nIf you sampled from the box labeled \"Apples\" or \"Oranges\" and saw the matching fruit, you'd only confirm that box is *not* what its label says \u2014 but you'd still face ambiguity between the other two boxes. Sampling the \"Mixed\" box gives a single fruit that **uniquely identifies** that box's contents, which then forces the rest.\n\n**Final Answer: Inspect the box labeled \"Mixed.\"**"
+  },
+  {
+    "task_id": "t32",
+    "answer": "Here is a clean implementation using the classic two-pointer merge technique (the same step used in merge sort). It runs in **O(n + m)** time and uses **O(n + m)** extra space for the result.\n\n```python\ndef merge_sorted_lists(list1, list2):\n    \"\"\"\n    Merge two sorted lists into a single sorted list.\n    Does not use Python's built-in sort.\n    \"\"\"\n    merged = []\n    i, j = 0, 0\n\n    # Compare elements from both lists and append the smaller one\n    while i < len(list1) and j < len(list2):\n        if list1[i] <= list2[j]:\n            merged.append(list1[i])\n            i += 1\n        else:\n            merged.append(list2[j])\n            j += 1\n\n    # Append any remaining elements from list1\n    while i < len(list1):\n        merged.append(list1[i])\n        i += 1\n\n    # Append any remaining elements from list2\n    while j < len(list2):\n        merged.append(list2[j])\n        j += 1\n\n    return merged\n\n\n# Example usage\na = [1, 3, 5, 7]\nb = [2, 4, 6, 8]\nprint(merge_sorted_lists(a, b))  # [1, 2, 3, 4, 5, 6, 7, 8]\n```\n\n**How it works:**\n1. Start with two pointers at the beginning of each list.\n2. Repeatedly compare the current elements and copy the smaller one into the result.\n3. Move the pointer of the list that contributed the element.\n4. Once one list is exhausted, copy the rest of the other list (it\u2019s already sorted).\n\nThis handles duplicates correctly because we use `<=`, so equal elements from `list1` are placed before those from `list2`, keeping the merge stable."
+  },
+  {
+    "task_id": "t33",
+    "answer": "HTTP is stateless because each request is independent\u2014the server doesn't retain information about previous requests from the same client. Web applications maintain sessions using techniques like cookies (storing a session ID on the client), server-side session stores (mapping IDs to user data), or tokens like JWTs, allowing the server to recognize and authenticate users across multiple requests."
+  },
+  {
+    "task_id": "t34",
+    "answer": "Monday: 35% of 480 = 0.35 \u00d7 480 = 168  \nRemaining after Monday: 480 \u2212 168 = 312  \nTuesday: half of 312 = 312 \u00f7 2 = 156  \nRemaining after Tuesday: 312 \u2212 156 = 156  \n\nAnswer: 156\n\nAnswer: 156"
+  },
+  {
+    "task_id": "t35",
+    "answer": "neutral"
+  },
+  {
+    "task_id": "t36",
+    "answer": "Researchers developed a drone-based wildlife monitoring system that can identify endangered species in dense forests with minimal human intervention."
+  },
+  {
+    "task_id": "t37",
+    "answer": "[{\"text\": \"Elon Musk\", \"type\": \"PERSON\"}, {\"text\": \"Indian Institute of Technology Delhi\", \"type\": \"ORG\"}, {\"text\": \"3 March 2025\", \"type\": \"DATE\"}]"
+  },
+  {
+    "task_id": "t38",
+    "answer": "## Bug Explanation\n\nThe base case is wrong. `factorial(0)` should return `1`, not `0`. Because the function returns `0` for `n == 0`, every recursive call eventually multiplies by `0`, so `factorial(n)` returns `0` for all inputs. Also, the function does not handle negative numbers, which would cause infinite recursion.\n\n## Corrected Code\n\n```python\ndef factorial(n):\n    if n < 0:\n        raise ValueError(\"Factorial is not defined for negative numbers\")\n    if n == 0:\n        return 1\n    return n * factorial(n - 1)\n```"
+  },
+  {
+    "task_id": "t39",
+    "answer": "I could not determine a unique solution."
+  },
+  {
+    "task_id": "t40",
+    "answer": "Here is a clean implementation using a dictionary to collect strings by their length:\n\n```python\nfrom typing import List, Dict\n\ndef group_by_length(strings: List[str]) -> Dict[int, List[str]]:\n    \"\"\"\n    Groups strings by their length.\n\n    Args:\n        strings: A list of strings.\n\n    Returns:\n        A dictionary where keys are string lengths and values are lists\n        of strings having that length.\n    \"\"\"\n    grouped: Dict[int, List[str]] = {}\n    for s in strings:\n        length = len(s)\n        grouped.setdefault(length, []).append(s)\n    return grouped\n\n\n# Example usage\nif __name__ == \"__main__\":\n    words = [\"apple\", \"pie\", \"banana\", \"kiwi\", \"pear\", \"peach\"]\n    print(group_by_length(words))\n    # Output: {5: ['apple', 'peach'], 3: ['pie'], 6: ['banana'], 4: ['kiwi', 'pear']}\n```\n\nThis function iterates through the input list once, uses `setdefault` to create a new list when a length is seen for the first time, and appends each string to the appropriate list. The time complexity is **O(n)**, where *n* is the number of strings."
+  }
+]

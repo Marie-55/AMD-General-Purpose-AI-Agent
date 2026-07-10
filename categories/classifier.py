@@ -189,21 +189,70 @@ def _ner_is_plausible(prompt: str) -> bool:
 # Scoring
 # ---------------------------------------------------------------------------
 
-def classify_regex(prompt: str) -> Tuple[str, int]:
-    """Score every category and return ``(best_category, best_score)``."""
+def _score_categories(prompt: str) -> dict:
+    """Score every category against *prompt*. Shared by classify_regex and classify()."""
     text = prompt.lower()
     scores = {cat: 0 for cat in CATEGORY_PATTERNS}
     for cat, patterns in CATEGORY_PATTERNS.items():
         for pat in patterns:
             if re.search(pat, text, flags=re.IGNORECASE | re.MULTILINE):
                 scores[cat] += 1
+    return scores
 
+
+def classify_regex(prompt: str) -> Tuple[str, int]:
+    """Score every category and return ``(best_category, best_score)``.
+    Kept for the fallback path and for unit tests that call it directly."""
+    scores = _score_categories(prompt)
     best_cat, best_score = "factual_knowledge", 0
     for cat in PRIORITY:
         if scores[cat] > best_score:
             best_cat, best_score = cat, scores[cat]
     return best_cat, best_score
 
+
+def classify(prompt: str, local_model=None) -> str:
+    """
+    Hybrid classifier.
+
+    Regex is trusted first when it has a real, specific signal (score >= 1) —
+    those patterns (```, "bug", "sentiment", "summarize", clue-style logic
+    phrasing, etc.) are precise enough that a hit is rarely wrong. The local
+    model is used only to fill in when regex found NOTHING (score == 0),
+    since that's the only case where we actually need it to disambiguate.
+
+    We do NOT trust the local model when it says "factual_knowledge" over
+    regex's own top guess (even a weak one), because factual_knowledge is
+    both the model's default fallback label AND the first option listed in
+    its classification prompt -- it's the label a small greedy-decoded model
+    reaches for when it isn't sure, which is exactly the case we can't trust.
+    """
+    from categories.local_model import LocalModelSingleton, classify_with_local_model
+
+    scores = _score_categories(prompt)
+    regex_cat, regex_score = "factual_knowledge", 0
+    for cat in PRIORITY:
+        if scores[cat] > regex_score:
+            regex_cat, regex_score = cat, scores[cat]
+
+    # Regex found a real signal -- trust it immediately, no local model call.
+    if regex_score >= 1:
+        return _apply_ner_guard(regex_cat, prompt, scores)
+
+    # Regex found nothing at all -- ask the local model to disambiguate.
+    loaded_model: Optional[LocalModelSingleton] = (
+        local_model if (local_model is not None and local_model.is_loaded()) else None
+    )
+    if loaded_model is not None:
+        lm_cat = classify_with_local_model(prompt, loaded_model)
+        # Reject a local-model "factual_knowledge" verdict here specifically --
+        # if regex ALSO found nothing, this is the exact ambiguous case where
+        # the model's order-bias default is least trustworthy. Only accept
+        # a non-default category from it.
+        if lm_cat is not None and lm_cat != "factual_knowledge":
+            return _apply_ner_guard(lm_cat, prompt, scores)
+
+    return "factual_knowledge"
 
 def _apply_ner_guard(category: str, prompt: str, scores: dict) -> str:
     """
@@ -227,60 +276,60 @@ def _apply_ner_guard(category: str, prompt: str, scores: dict) -> str:
 # Public API
 # ---------------------------------------------------------------------------
 
-def classify(prompt: str, local_model=None) -> str:
-    """
-    Return one of the 8 fixed category strings for a raw prompt.
+# def classify(prompt: str, local_model=None) -> str:
+#     """
+#     Return one of the 8 fixed category strings for a raw prompt.
 
-    Parameters
-    ----------
-    prompt:
-        The raw user prompt text.
-    local_model:
-        Optional ``LocalModelSingleton``.  Used as a second-pass classifier
-        when regex confidence is low.  When ``None``, pure regex is used
-        (backward-compatible with existing tests).
-    """
-    from categories.local_model import LocalModelSingleton, classify_with_local_model
+#     Parameters
+#     ----------
+#     prompt:
+#         The raw user prompt text.
+#     local_model:
+#         Optional ``LocalModelSingleton``.  Used as a second-pass classifier
+#         when regex confidence is low.  When ``None``, pure regex is used
+#         (backward-compatible with existing tests).
+#     """
+#     from categories.local_model import LocalModelSingleton, classify_with_local_model
 
-    # Score all categories.
-    text = prompt.lower()
-    scores = {cat: 0 for cat in CATEGORY_PATTERNS}
-    for cat, patterns in CATEGORY_PATTERNS.items():
-        for pat in patterns:
-            if re.search(pat, text, flags=re.IGNORECASE | re.MULTILINE):
-                scores[cat] += 1
+#     # Score all categories.
+#     text = prompt.lower()
+#     scores = {cat: 0 for cat in CATEGORY_PATTERNS}
+#     for cat, patterns in CATEGORY_PATTERNS.items():
+#         for pat in patterns:
+#             if re.search(pat, text, flags=re.IGNORECASE | re.MULTILINE):
+#                 scores[cat] += 1
 
-    regex_cat, regex_score = "factual_knowledge", 0
-    for cat in PRIORITY:
-        if scores[cat] > regex_score:
-            regex_cat, regex_score = cat, scores[cat]
+#     regex_cat, regex_score = "factual_knowledge", 0
+#     for cat in PRIORITY:
+#         if scores[cat] > regex_score:
+#             regex_cat, regex_score = cat, scores[cat]
 
-    # Apply NER guard to regex result before trusting it.
-    regex_cat = _apply_ner_guard(regex_cat, prompt, scores)
+#     # Apply NER guard to regex result before trusting it.
+#     regex_cat = _apply_ner_guard(regex_cat, prompt, scores)
 
-    # High-confidence regex hit — return immediately.
-    if regex_score >= 2:
-        return regex_cat
+#     # High-confidence regex hit — return immediately.
+#     if regex_score >= 2:
+#         return regex_cat
 
-    loaded_model: Optional[LocalModelSingleton] = (
-        local_model if (local_model is not None and local_model.is_loaded()) else None
-    )
+#     loaded_model: Optional[LocalModelSingleton] = (
+#         local_model if (local_model is not None and local_model.is_loaded()) else None
+#     )
 
-    if regex_score == 1:
-        if loaded_model is not None:
-            lm_cat = classify_with_local_model(prompt, loaded_model)
-            if lm_cat is not None:
-                # Apply NER guard to local model result too.
-                lm_cat = _apply_ner_guard(lm_cat, prompt, scores)
-                return lm_cat
-        return regex_cat
+#     if regex_score == 1:
+#         if loaded_model is not None:
+#             lm_cat = classify_with_local_model(prompt, loaded_model)
+#             if lm_cat is not None:
+#                 # Apply NER guard to local model result too.
+#                 lm_cat = _apply_ner_guard(lm_cat, prompt, scores)
+#                 return lm_cat
+#         return regex_cat
 
-    # regex_score == 0: delegate entirely to local model.
-    if loaded_model is not None:
-        lm_cat = classify_with_local_model(prompt, loaded_model)
-        if lm_cat is not None:
-            lm_cat = _apply_ner_guard(lm_cat, prompt, scores)
-            return lm_cat
-        return "factual_knowledge"
+#     # regex_score == 0: delegate entirely to local model.
+#     if loaded_model is not None:
+#         lm_cat = classify_with_local_model(prompt, loaded_model)
+#         if lm_cat is not None:
+#             lm_cat = _apply_ner_guard(lm_cat, prompt, scores)
+#             return lm_cat
+#         return "factual_knowledge"
 
-    return regex_cat
+#     return regex_cat

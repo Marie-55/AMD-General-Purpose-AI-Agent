@@ -23,6 +23,7 @@ import ast
 import time
 
 from categories.code_exec import extract_code, run_code_safely
+from categories.code_exec import extract_code, run_code_safely, run_code_generation_check
 
 # ---------------------------------------------------------------------------
 # Category-specific fallback system instructions
@@ -128,11 +129,12 @@ def verify_and_fix(
     if syntax_ok:
         if category == "code_generation":
             t0 = time.perf_counter()
-            success, _run_output = run_code_safely(code)
+            success, _run_output = run_code_generation_check(code)
             latency["exec_s"] = round(time.perf_counter() - t0, 3)
             if success:
                 return llm_output, "code_verified", latency
-            # Execution failed — fall through to fix loop.
+            # Smoke test failed (or an actual call raised) — fall through
+            # to the fix loop instead of trusting unexecuted code.
         else:
             # code_debugging: parse success is enough.
             return llm_output, "code_verified", latency
@@ -179,7 +181,7 @@ def verify_and_fix(
         # For code_generation also verify by execution.
         if category == "code_generation":
             t1 = time.perf_counter()
-            success, _out = run_code_safely(fixed_code)
+            success, _out = run_code_generation_check(fixed_code)
             latency[f"fix_exec_{attempt}_s"] = round(time.perf_counter() - t1, 3)
             if not success:
                 broken_code = fixed_code

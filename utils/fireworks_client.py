@@ -44,6 +44,7 @@ class FireworksClient:
             "prompt_tokens": None,
             "completion_tokens": None,
             "total_tokens": None,
+            "reasoning_chars": 0,
             "error": None,
         }
         try:
@@ -57,18 +58,32 @@ class FireworksClient:
                 timeout=timeout,
             )
             chunks = []
+            reasoning_chunks = []
             first_token_ts = None
             usage = None
             for chunk in stream:
-                if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
-                    if first_token_ts is None:
-                        first_token_ts = time.time()
-                        metrics["ttft_ms"] = round((first_token_ts - t_sent) * 1000, 1)
-                    chunks.append(chunk.choices[0].delta.content)
+                if chunk.choices:
+                    delta = chunk.choices[0].delta
+                    if delta and delta.content:
+                        if first_token_ts is None:
+                            first_token_ts = time.time()
+                            metrics["ttft_ms"] = round((first_token_ts - t_sent) * 1000, 1)
+                        chunks.append(delta.content)
+                    # Reasoning-capable models (e.g. minimax-m3) stream an
+                    # internal "thinking" pass separately from `content`.
+                    # If max_tokens runs out mid-reasoning, `content` can be
+                    # completely empty even though the model was working --
+                    # capture this so callers can tell the difference between
+                    # "the model had nothing to say" and "it ran out of
+                    # budget before it got to say anything."
+                    reasoning_piece = getattr(delta, "reasoning_content", None)
+                    if reasoning_piece:
+                        reasoning_chunks.append(reasoning_piece)
                 if getattr(chunk, "usage", None):
                     usage = chunk.usage
 
             answer = "".join(chunks).strip()
+            metrics["reasoning_chars"] = len("".join(reasoning_chunks))
             t_end = time.time()
             if usage:
                 metrics["prompt_tokens"] = usage.prompt_tokens
@@ -76,6 +91,17 @@ class FireworksClient:
                 metrics["total_tokens"] = usage.total_tokens
             metrics["request_end_ts"] = t_end
             metrics["total_latency_ms"] = round((t_end - t_sent) * 1000, 1)
+
+            # Empty content but the model was clearly reasoning -- this is a
+            # budget-exhaustion failure, not a "nothing to say" failure.
+            # Surface it as an error so callers' retry logic actually treats
+            # it differently instead of assuming a normal empty response.
+            if not answer and metrics["reasoning_chars"] > 0:
+                metrics["error"] = (
+                    f"reasoning_exhausted_budget: {metrics['reasoning_chars']} "
+                    f"reasoning chars produced, 0 content chars before max_tokens hit"
+                )
+
             return answer, metrics
 
         except Exception as e:

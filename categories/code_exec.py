@@ -18,6 +18,7 @@ Logic puzzles are not handled here; they are routed through Fireworks NL.
 
 Safety: every path has a fallback so no task ever returns empty.
 """
+import ast
 import os
 import re
 import subprocess
@@ -140,3 +141,84 @@ def run_code_safely(code: str, timeout_s: float = 8.0):
                 os.unlink(path)
             except OSError:
                 pass
+
+# ---------------------------------------------------------------------------
+# code_generation verification: actually CALL the function(s), don't just
+# check for stdout. Most code_generation answers are pure function
+# definitions with no top-level invocation, so "did the script print
+# something" is always False for correct code — and never catches real bugs
+# like using an unhashable dict as a set element, since a plain script run
+# never actually calls the function.
+# ---------------------------------------------------------------------------
+
+_SMOKE_ARG_POOL = [
+    "[{'a': 1}, {'b': 2}, {'a': 1}]",  # list of dicts — catches unhashable-in-set bugs
+    "[3, 1, 2, 3, 1]",                 # list of ints — dup/sort/min/max bugs
+    "['apple', 'banana', 'kiwi']",     # list of strings
+    "'hello world'",                   # plain string
+    "{'x': 1, 'y': 2}",                # dict
+    "[1, 2, 3]",                       # secondary list arg (merges, etc.)
+]
+
+
+def _extract_function_signatures(code: str):
+    """Best-effort list of (name, required_param_count, has_varargs) for every
+    top-level function in *code*. Used only to build smoke-test calls."""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return []
+    sigs = []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            args = node.args
+            required = len(args.args) - len(args.defaults)
+            sigs.append((node.name, max(required, 0), bool(args.vararg)))
+    return sigs
+
+
+def _build_smoke_test(code: str) -> str | None:
+    """
+    Return code + one try/except call per top-level function using generic
+    dummy args, printing PASS:<name> or FAIL:<name>:<error>. Returns None if
+    there's no top-level function to call (caller should fall back to a
+    plain script run in that case).
+    """
+    sigs = _extract_function_signatures(code)
+    if not sigs:
+        return None
+
+    calls = []
+    for name, param_count, has_varargs in sigs:
+        n = min(2, len(_SMOKE_ARG_POOL)) if has_varargs else min(param_count, len(_SMOKE_ARG_POOL))
+        args = ", ".join(_SMOKE_ARG_POOL[:n]) if param_count > 0 or has_varargs else ""
+        calls.append(
+            f"try:\n"
+            f"    {name}({args})\n"
+            f"    print('PASS:{name}')\n"
+            f"except Exception as e:\n"
+            f"    print(f'FAIL:{name}:{{type(e).__name__}}:{{e}}')\n"
+        )
+    return code + "\n\n" + "\n".join(calls)
+
+
+def run_code_generation_check(code: str, timeout_s: float = 8.0):
+    """
+    Verify a code_generation answer by calling every top-level function it
+    defines with generic dummy inputs. Returns ``(success, detail)``.
+
+    success is True only if the code parses, the smoke-test script runs
+    without a crash, and no function raised (no "FAIL:" line in stdout).
+    Falls back to the plain run_code_safely behaviour if there's no
+    top-level function to call.
+    """
+    smoke_script = _build_smoke_test(code)
+    if smoke_script is None:
+        return run_code_safely(code, timeout_s=timeout_s)
+
+    ok, output = run_code_safely(smoke_script, timeout_s=timeout_s)
+    if not ok:
+        return False, output
+    if "FAIL:" in output:
+        return False, output
+    return True, output
