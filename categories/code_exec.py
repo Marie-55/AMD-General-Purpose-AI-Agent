@@ -4,18 +4,17 @@ Code-gen + local-execution path.
 Two distinct execution strategies:
 
 1. LOCAL MATH EXECUTION (zero Fireworks tokens)
-   For math_reasoning: we first attempt to solve the problem by generating
-   Python locally using the Qwen model (if loaded), OR by sending a single
-   Fireworks call to get a short Python script, then running it in a sandboxed
-   subprocess.  The key difference from the old approach: we try a direct
-   local Python eval pass first before touching Fireworks at all.
+    For math_reasoning: we first attempt to solve the problem by generating
+    Python locally using the Qwen model (if loaded), OR by sending a single
+    Fireworks call to get a short Python script, then running it in a sandboxed
+    subprocess. The key difference from the old approach: we try a direct
+    local Python eval pass first before touching Fireworks at all.
 
 2. FIREWORKS CODE PATH (code_generation / code_debugging)
    For code tasks that need a code specialist: call Fireworks, extract code,
    verify via AST + exec, auto-fix if needed.
 
-Logic puzzles (logic_puzzle category) are NOT handled here — they go directly
-to Fireworks NL because constraint deduction is unreliable as generated Python.
+Logic puzzles are not handled here; they are routed through Fireworks NL.
 
 Safety: every path has a fallback so no task ever returns empty.
 """
@@ -24,10 +23,11 @@ import re
 import subprocess
 import sys
 import tempfile
+import json
 from fractions import Fraction
 
-# System prompt for math script generation — tight constraints so the model
-# emits only what we need to execute, nothing extra.
+# System prompt for math script generation — tight constraints so the
+# model emits only what we need to execute, nothing extra.
 CODE_GEN_SYSTEM = (
     "You are a Python code generator. Given a math problem, write a SELF-CONTAINED "
     "Python script using only the standard library (no external packages, no input()). "
@@ -38,7 +38,8 @@ CODE_GEN_SYSTEM = (
     "RESULT = round(float(RESULT), 2). "
     "If the result is a whole number after rounding (e.g. 600.0), print it as an integer: "
     "print(int(RESULT) if RESULT == int(RESULT) else RESULT). "
-    "Return ONLY a single ```python code block — no explanation before or after."
+    "Return only one complete ```python code block and nothing else. "
+    "No explanation, no markdown outside the block, and no extra text."
 )
 
 
@@ -52,7 +53,33 @@ def build_codegen_messages(problem_text: str) -> list:
 def extract_code(llm_output: str) -> str:
     """Extract the first ```python ... ``` block, or return the raw text."""
     m = re.search(r"```(?:python)?\s*(.*?)```", llm_output, flags=re.DOTALL)
-    return m.group(1).strip() if m else llm_output.strip()
+    if m:
+        return m.group(1).strip()
+
+    text = llm_output.strip()
+    if not text:
+        return text
+
+    if text.startswith("{"):
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            return text
+
+        for key in ("corrected_code", "code", "fixed_code"):
+            value = parsed.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        parts = parsed.get("corrected_parts")
+        if isinstance(parts, list):
+            for part in parts:
+                if isinstance(part, dict):
+                    for key in ("corrected_code", "code", "fix"):
+                        value = part.get(key)
+                        if isinstance(value, str) and value.strip():
+                            return value.strip()
+
+    return text
 
 
 def _clean_numeric_output(raw: str) -> str:

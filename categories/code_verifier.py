@@ -37,8 +37,10 @@ _FALLBACK_SYSTEM: dict[str, str] = {
     ),
     "code_debugging": (
         "You are a Python debugging expert. The previous code attempt could not be "
-        "verified. Identify the bug and explain the fix in plain English. If you include "
-        "corrected code, wrap it in a single ```python block."
+        "verified. Return valid JSON only with keys issues and corrected_parts. "
+        "issues must be a short array of bug descriptions. corrected_parts must be an "
+        "array of objects containing only the corrected code snippets and optional "
+        "location/original fields. If you include code, put it in corrected_parts."
     ),
 }
 
@@ -49,7 +51,10 @@ _DEFAULT_FALLBACK_SYSTEM = (
 
 _FIX_SYSTEM = (
     "You are a Python expert. Fix the following code so it is syntactically correct "
-    "and runs without errors. Return ONLY a single ```python code block."
+    "and runs without errors. Return valid JSON only. For code_generation include a "
+    "corrected_code field containing the full Python code. For code_debugging include "
+    "issues and corrected_parts fields, where corrected_parts contains the corrected "
+    "code snippets."
 )
 
 

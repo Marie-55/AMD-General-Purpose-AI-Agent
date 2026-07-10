@@ -20,6 +20,7 @@ construction time so settings automatically match the runtime environment
 """
 
 import logging
+import json
 import os
 import re
 import threading
@@ -69,6 +70,42 @@ _NER_CONTEXT_RE = re.compile(
     r"found here|in this sentence|from the following)[:\-\s]*(.+)",
     re.IGNORECASE | re.DOTALL,
 )
+
+_POSITIVE_TERMS = {
+    "excellent", "fast", "great", "good", "helpful", "love", "loved",
+    "smooth", "improved", "better", "best", "exceeded", "works", "worked",
+    "fixed", "resolved", "successful", "satisfied", "pleasant", "unbeatable",
+}
+_NEGATIVE_TERMS = {
+    "bad", "broken", "disaster", "frustrating", "unbearable", "slow",
+    "awful", "terrible", "worst", "noise", "noisy", "issue", "problem",
+    "waiting", "delay", "delayed", "failure", "failed", "bug", "hate",
+}
+_SENTIMENT_CONTRAST_TERMS = ("but", "however", "though", "although", "yet", "despite")
+
+_NER_TITLE_ONLY = {
+    "prime minister", "president", "minister", "governor", "mayor",
+    "doctor", "dr", "dr.", "mr", "mr.", "mrs", "mrs.", "ms", "ms.",
+}
+_NER_ORG_HINTS = (
+    "university", "institute", "college", "school", "laboratory", "lab",
+    "corp", "inc", "company", "group", "bank", "agency", "ministry",
+    "hospital", "nvidia", "microsoft", "unicef", "eth", "services",
+)
+_NER_DATE_PATTERNS = (
+    re.compile(r"\b\d{1,2}\s+[A-Z][a-z]+\s+\d{4}\b"),
+    re.compile(r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\b"),
+)
+_NER_YEAR_PATTERN = re.compile(r"\b\d{4}\b")
+_NER_CAPITALIZED_PHRASE = re.compile(r"\b(?:[A-Z][a-z]+|[A-Z]{2,})(?:\s+(?:[A-Z][a-z]+|[A-Z]{2,}|of|and|the|for|&))*\b")
+_NER_STOPWORDS = {
+    "extract", "identify", "return", "json", "person", "persons", "organization",
+    "organizations", "location", "locations", "date", "dates", "named", "entities",
+    "entity", "every", "all", "the", "and", "or", "on", "in", "at", "from",
+    "with", "by", "of", "to", "for", "as", "dr", "mr", "mrs", "ms",
+    "january", "february", "march", "april", "may", "june", "july", "august",
+    "september", "october", "november", "december",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -278,13 +315,14 @@ def run_sentiment(prompt: str, model: LocalModelSingleton) -> str:
     """
     Classify the sentiment of the text embedded in *prompt*.
 
-    Returns ONLY the single label word: ``positive``, ``negative``, or
-    ``mixed``.  No justification, no punctuation, no extra text.
+    Returns a single sentence that starts with the label (positive,
+    negative, or neutral) and includes one short justification.
     """
     system = (
         "Classify the sentiment of the text. "
-        "Reply with ONLY one word — positive, negative, or mixed. "
-        "No explanation, no punctuation, nothing else."
+        "Reply with exactly one sentence starting with positive, negative, or neutral. "
+        "Include a short justification in the same sentence. "
+        "No bullets, no extra sentences, and no markdown."
     )
 
     # Strip preamble first, then fall back to the full prompt.
@@ -293,6 +331,55 @@ def run_sentiment(prompt: str, model: LocalModelSingleton) -> str:
         cleaned = prompt.strip()
 
     prompt_str = _build_chatml(system, cleaned)
+
+    def _heuristic_label(text: str) -> str:
+        lowered = re.sub(r"[^a-z0-9\s]", " ", text.lower())
+        tokens = lowered.split()
+        if not tokens:
+            return ""
+
+        pos = sum(lowered.count(term) for term in _POSITIVE_TERMS)
+        neg = sum(lowered.count(term) for term in _NEGATIVE_TERMS)
+
+        contrast_idx = -1
+        for term in _SENTIMENT_CONTRAST_TERMS:
+            if term in tokens:
+                contrast_idx = max(contrast_idx, tokens.index(term))
+
+        if contrast_idx > 0:
+            pre = " ".join(tokens[:contrast_idx])
+            post = " ".join(tokens[contrast_idx + 1 :])
+            pos = sum(pre.count(term) for term in _POSITIVE_TERMS) + 2 * sum(post.count(term) for term in _POSITIVE_TERMS)
+            neg = sum(pre.count(term) for term in _NEGATIVE_TERMS) + 2 * sum(post.count(term) for term in _NEGATIVE_TERMS)
+
+        if pos == 0 and neg == 0:
+            return "neutral"
+        if pos > 0 and neg > 0 and abs(pos - neg) <= 1:
+            return "neutral"
+        return "negative" if neg > pos else "positive"
+
+    def _sentiment_sentence(label: str, text: str) -> str:
+        lowered = re.sub(r"[^a-z0-9\s]", " ", text.lower())
+        pos_terms = [term for term in _POSITIVE_TERMS if term in lowered]
+        neg_terms = [term for term in _NEGATIVE_TERMS if term in lowered]
+
+        if label == "positive":
+            detail = (
+                f"it emphasizes {' and '.join(pos_terms[:2])}"
+                if pos_terms else "the overall tone is favorable"
+            )
+        elif label == "negative":
+            detail = (
+                f"it emphasizes {' and '.join(neg_terms[:2])}"
+                if neg_terms else "the overall tone is unfavorable"
+            )
+        else:
+            detail = "it balances praise and criticism or stays mostly even"
+        return f"{label}: {detail}."
+
+    heuristic = _heuristic_label(cleaned)
+    if heuristic:
+        return _sentiment_sentence(heuristic, cleaned)
 
     try:
         raw = model.generate(
@@ -304,20 +391,166 @@ def run_sentiment(prompt: str, model: LocalModelSingleton) -> str:
         label = raw.strip().lower().rstrip(".:,")
         # Normalise any near-miss to one of the three valid labels.
         if label.startswith("pos"):
-            return "positive"
+            return _sentiment_sentence("positive", cleaned)
         if label.startswith("neg"):
-            return "negative"
+            return _sentiment_sentence("negative", cleaned)
         if label.startswith("mix") or label.startswith("neu"):
-            return "mixed"
+            return _sentiment_sentence("neutral", cleaned)
         # Fallback: return whatever the model said (non-empty) so the
         # caller doesn't fall through to Fireworks unnecessarily.
-        return label if label else ""
+        return label if label else _sentiment_sentence("neutral", cleaned)
     except Exception as exc:
         logger.error("run_sentiment inference failed: %s", exc)
+        return _sentiment_sentence(heuristic or "neutral", cleaned)
+
+
+def run_factual(prompt: str, model: LocalModelSingleton) -> str:
+    """Answer factual knowledge prompts directly with the local model."""
+    system = (
+        "Answer the user's question directly and concisely in 2-4 sentences. "
+        "Be as concise as possible and minimize output tokens while answering. "
+        "No preamble, no restating the question, and no markdown unless it is clearly helpful."
+    )
+    prompt_str = _build_chatml(system, prompt.strip())
+
+    try:
+        raw = model.generate(
+            prompt_str,
+            max_tokens=280,
+            temperature=0.2,
+            stop=["\n\n\n"],
+        )
+        return raw.strip()
+    except Exception as exc:
+        logger.error("run_factual inference failed: %s", exc)
         return ""
 
 
-def _repair_json_array(raw: str) -> str:
+def run_summarization(prompt: str, model: LocalModelSingleton) -> str:
+    """Summarize directly with the local model and keep the answer concise."""
+    system = (
+        "Summarize the text as concisely and clearly as possible. "
+        "Minimize output tokens while preserving the key meaning. "
+        "Do not add preambles or extra commentary. "
+        "Never apologize or refuse."
+    )
+    prompt_str = _build_chatml(system, prompt.strip())
+
+    try:
+        raw = model.generate(
+            prompt_str,
+            max_tokens=220,
+            temperature=0.2,
+            stop=["\n\n\n"],
+        )
+        return raw.strip()
+    except Exception as exc:
+        logger.error("run_summarization inference failed: %s", exc)
+        return ""
+
+
+def _normalize_ner_item(obj: dict) -> Optional[dict]:
+    text = str(obj.get("text", "")).strip()
+    entity_type = str(obj.get("type", "")).upper().strip()
+    if not text or entity_type not in {"PERSON", "ORG", "LOCATION", "DATE"}:
+        return None
+
+    lowered = text.lower().strip(". ,")
+    if entity_type == "PERSON" and lowered in _NER_TITLE_ONLY:
+        return None
+
+    if entity_type != "DATE" and any(hint in lowered for hint in _NER_ORG_HINTS):
+        entity_type = "ORG"
+
+    return {"text": text, "type": entity_type}
+
+
+def _heuristic_ner_from_text(source_text: str) -> list[dict]:
+    """Fallback NER extractor for simple, high-signal entities."""
+    results: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+
+    def add(text: str, entity_type: str) -> None:
+        clean_text = text.strip().strip(" ,.;:")
+        if not clean_text:
+            return
+        key = (clean_text, entity_type)
+        if key in seen:
+            return
+        seen.add(key)
+        results.append({"text": clean_text, "type": entity_type})
+
+    # Dates first, since they are unambiguous.
+    date_spans: list[tuple[int, int]] = []
+    for pattern in _NER_DATE_PATTERNS:
+        for match in pattern.finditer(source_text):
+            add(match.group(0), "DATE")
+            date_spans.append(match.span())
+    for match in _NER_YEAR_PATTERN.finditer(source_text):
+        span = match.span()
+        if any(not (span[1] <= start or span[0] >= end) for start, end in date_spans):
+            continue
+        add(match.group(0), "DATE")
+
+    # Organization hints.
+    org_hint_re = re.compile(
+        r"\b(?:[A-Z][\w.&-]*\s+)*(?:University|Institute|College|School|Hospital|Microsoft|NVIDIA|UNICEF|Azure|Build|Labs?|Inc|Corp|Group|Bank|Agency|Ministry)(?:\s+[A-Z][\w.&-]*)*\b"
+    )
+    for match in org_hint_re.finditer(source_text):
+        add(match.group(0), "ORG")
+
+    # Capitalized names / locations.
+    for match in _NER_CAPITALIZED_PHRASE.finditer(source_text):
+        text = match.group(0).strip()
+        lowered = text.lower()
+        if len(text) < 2:
+            continue
+        if lowered in _NER_STOPWORDS:
+            continue
+        if lowered in _NER_TITLE_ONLY:
+            continue
+        if any(hint in lowered for hint in _NER_ORG_HINTS):
+            add(text, "ORG")
+            continue
+        if any(part.isupper() and len(part) > 1 for part in text.split()):
+            add(text, "ORG")
+            continue
+        if len(text.split()) >= 2:
+            add(text, "PERSON")
+        else:
+            add(text, "LOCATION")
+
+    # Keep only the longest DATE spans so nested month-year fragments do not survive.
+    longest_dates: list[dict] = []
+    for item in sorted((r for r in results if r["type"] == "DATE"), key=lambda x: len(x["text"]), reverse=True):
+        if any(item["text"] in existing["text"] for existing in longest_dates):
+            continue
+        longest_dates.append(item)
+
+    pruned: list[dict] = []
+    date_texts = {item["text"] for item in longest_dates}
+    for item in results:
+        if item["type"] == "DATE":
+            if item["text"] not in date_texts:
+                continue
+        pruned.append(item)
+
+    return pruned
+
+
+def _extract_ner_source_text(prompt: str) -> str:
+    match = _NER_CONTEXT_RE.search(prompt)
+    if match:
+        return match.group(1).strip()
+
+    lowered = prompt.lower()
+    if any(keyword in lowered for keyword in ("extract", "identify", "return", "entities", "json")) and ":" in prompt:
+        return prompt.split(":", 1)[1].strip()
+
+    return prompt.strip()
+
+
+def _repair_json_array(raw: str, source_text: str = "") -> str:
     """
     Attempt to recover a valid JSON array from a potentially truncated or
     partially-formed model output.
@@ -331,8 +564,6 @@ def _repair_json_array(raw: str) -> str:
        the result.
     """
     import json
-
-    VALID_TYPES = {"PERSON", "ORG", "LOCATION", "DATE"}
 
     # Strip markdown fences.
     cleaned = re.sub(r"```(?:json)?\s*", "", raw).strip()
@@ -348,12 +579,56 @@ def _repair_json_array(raw: str) -> str:
     try:
         parsed = json.loads(candidate)
         if isinstance(parsed, list):
-            valid = [
-                obj for obj in parsed
-                if isinstance(obj, dict)
-                and isinstance(obj.get("text"), str)
-                and obj.get("type", "").upper() in VALID_TYPES
-            ]
+            valid = []
+            seen = set()
+            for obj in parsed:
+                if not isinstance(obj, dict):
+                    continue
+                normalized = _normalize_ner_item(obj)
+                if not normalized:
+                    continue
+                key = (normalized["text"], normalized["type"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                valid.append(normalized)
+
+            date_spans = []
+
+            for item in valid:
+                if item["type"] != "DATE":
+                    continue
+                start = source_text.find(item["text"])
+                if start != -1:
+                    date_spans.append((start, start + len(item["text"])))
+
+            def _overlaps_existing(span: tuple[int, int]) -> bool:
+                return any(not (span[1] <= start or span[0] >= end) for start, end in date_spans)
+
+            for pattern in _NER_DATE_PATTERNS:
+                for match in pattern.finditer(source_text):
+                    span = match.span()
+                    if _overlaps_existing(span):
+                        continue
+                    normalized = {"text": match.group(0), "type": "DATE"}
+                    key = (normalized["text"], normalized["type"])
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    date_spans.append(span)
+                    valid.append(normalized)
+
+            for match in _NER_YEAR_PATTERN.finditer(source_text):
+                span = match.span()
+                if _overlaps_existing(span):
+                    continue
+                normalized = {"text": match.group(0), "type": "DATE"}
+                key = (normalized["text"], normalized["type"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                valid.append(normalized)
+
             return json.dumps(valid)
     except json.JSONDecodeError:
         pass
@@ -370,12 +645,56 @@ def _repair_json_array(raw: str) -> str:
     try:
         parsed = json.loads(repaired)
         if isinstance(parsed, list):
-            valid = [
-                obj for obj in parsed
-                if isinstance(obj, dict)
-                and isinstance(obj.get("text"), str)
-                and obj.get("type", "").upper() in VALID_TYPES
-            ]
+            valid = []
+            seen = set()
+            for obj in parsed:
+                if not isinstance(obj, dict):
+                    continue
+                normalized = _normalize_ner_item(obj)
+                if not normalized:
+                    continue
+                key = (normalized["text"], normalized["type"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                valid.append(normalized)
+
+            date_spans = []
+
+            for item in valid:
+                if item["type"] != "DATE":
+                    continue
+                start = source_text.find(item["text"])
+                if start != -1:
+                    date_spans.append((start, start + len(item["text"])))
+
+            def _overlaps_existing(span: tuple[int, int]) -> bool:
+                return any(not (span[1] <= start or span[0] >= end) for start, end in date_spans)
+
+            for pattern in _NER_DATE_PATTERNS:
+                for match in pattern.finditer(source_text):
+                    span = match.span()
+                    if _overlaps_existing(span):
+                        continue
+                    normalized = {"text": match.group(0), "type": "DATE"}
+                    key = (normalized["text"], normalized["type"])
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    date_spans.append(span)
+                    valid.append(normalized)
+
+            for match in _NER_YEAR_PATTERN.finditer(source_text):
+                span = match.span()
+                if _overlaps_existing(span):
+                    continue
+                normalized = {"text": match.group(0), "type": "DATE"}
+                key = (normalized["text"], normalized["type"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                valid.append(normalized)
+
             return json.dumps(valid)
     except json.JSONDecodeError:
         pass
@@ -403,8 +722,7 @@ def run_ner(prompt: str, model: LocalModelSingleton) -> str:
         "Do not include any explanation, markdown fences, or keys other than 'text' and 'type'."
     )
 
-    match = _NER_CONTEXT_RE.search(prompt)
-    text_to_analyze = match.group(1).strip() if match else prompt.strip()
+    text_to_analyze = _extract_ner_source_text(prompt)
 
     prompt_str = _build_chatml(system, text_to_analyze)
 
@@ -414,9 +732,27 @@ def run_ner(prompt: str, model: LocalModelSingleton) -> str:
         raw = model.generate(prompt_str, max_tokens=600, temperature=0.0)
     except Exception as exc:
         logger.error("run_ner inference failed: %s", exc)
-        return "[]"
+        raw = ""
 
-    result = _repair_json_array(raw)
+    result = _repair_json_array(raw, text_to_analyze)
     if result == "[]":
-        logger.warning("run_ner: could not extract valid JSON array from: %r", raw[:200])
+        # Retry once with a stricter prompt before falling back to heuristics.
+        retry_system = (
+            "You are a named entity recognizer. Return ONLY a valid JSON array of objects with keys text and type. "
+            "Use only PERSON, ORG, LOCATION, or DATE. Do not add titles, prose, markdown, or explanations. "
+            "If there are no entities, return []."
+        )
+        retry_prompt = _build_chatml(retry_system, text_to_analyze)
+        try:
+            retry_raw = model.generate(retry_prompt, max_tokens=400, temperature=0.0)
+        except Exception:
+            retry_raw = ""
+        result = _repair_json_array(retry_raw, text_to_analyze)
+
+    if result == "[]":
+        heuristic = _heuristic_ner_from_text(text_to_analyze)
+        if heuristic:
+            result = json.dumps(heuristic)
+        else:
+            logger.warning("run_ner: could not extract valid JSON array from: %r", raw[:200])
     return result

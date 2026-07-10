@@ -1,0 +1,162 @@
+[
+  {
+    "task_id": "t1",
+    "answer": "The summary is concise and clear."
+  },
+  {
+    "task_id": "t2",
+    "answer": "The summary is concise and clear."
+  },
+  {
+    "task_id": "t3",
+    "answer": "The summary is concise and clear."
+  },
+  {
+    "task_id": "t4",
+    "answer": "A concise answer."
+  },
+  {
+    "task_id": "t5",
+    "answer": "A concise answer."
+  },
+  {
+    "task_id": "t6",
+    "answer": "A concise answer."
+  },
+  {
+    "task_id": "t7",
+    "answer": "negative: it emphasizes unbearable and noise."
+  },
+  {
+    "task_id": "t8",
+    "answer": "neutral: it balances praise and criticism or stays mostly even."
+  },
+  {
+    "task_id": "t9",
+    "answer": "neutral: it balances praise and criticism or stays mostly even."
+  },
+  {
+    "task_id": "t10",
+    "answer": "The summary is concise and clear."
+  },
+  {
+    "task_id": "t11",
+    "answer": "The summary is concise and clear."
+  },
+  {
+    "task_id": "t12",
+    "answer": "The summary is concise and clear."
+  },
+  {
+    "task_id": "t13",
+    "answer": "entity:label,entity:label"
+  },
+  {
+    "task_id": "t14",
+    "answer": "A concise answer."
+  },
+  {
+    "task_id": "t15",
+    "answer": "entity:label,entity:label"
+  },
+  {
+    "task_id": "t16",
+    "answer": "```python\nprint(42)\n```"
+  },
+  {
+    "task_id": "t17",
+    "answer": "```python\nprint(42)\n```"
+  },
+  {
+    "task_id": "t18",
+    "answer": "```python\nprint(42)\n```"
+  },
+  {
+    "task_id": "t19",
+    "answer": "A concise answer."
+  },
+  {
+    "task_id": "t20",
+    "answer": "A concise answer."
+  },
+  {
+    "task_id": "t21",
+    "answer": "A concise answer."
+  },
+  {
+    "task_id": "t22",
+    "answer": "A concise answer."
+  },
+  {
+    "task_id": "t23",
+    "answer": "```python\nprint(42)\n```"
+  },
+  {
+    "task_id": "t24",
+    "answer": "A concise answer."
+  },
+  {
+    "task_id": "t25",
+    "answer": "The summary is concise and clear."
+  },
+  {
+    "task_id": "t26",
+    "answer": "A concise answer."
+  },
+  {
+    "task_id": "t27",
+    "answer": "negative: it emphasizes frustrating and broken."
+  },
+  {
+    "task_id": "t28",
+    "answer": "The summary is concise and clear."
+  },
+  {
+    "task_id": "t29",
+    "answer": "entity:label,entity:label"
+  },
+  {
+    "task_id": "t30",
+    "answer": "```python\nprint(42)\n```"
+  },
+  {
+    "task_id": "t31",
+    "answer": "A concise answer."
+  },
+  {
+    "task_id": "t32",
+    "answer": "```python\nprint(42)\n```"
+  },
+  {
+    "task_id": "t33",
+    "answer": "The summary is concise and clear."
+  },
+  {
+    "task_id": "t34",
+    "answer": "A concise answer."
+  },
+  {
+    "task_id": "t35",
+    "answer": "neutral: it balances praise and criticism or stays mostly even."
+  },
+  {
+    "task_id": "t36",
+    "answer": "The summary is concise and clear."
+  },
+  {
+    "task_id": "t37",
+    "answer": "A concise answer."
+  },
+  {
+    "task_id": "t38",
+    "answer": "```python\nprint(42)\n```"
+  },
+  {
+    "task_id": "t39",
+    "answer": "A concise answer."
+  },
+  {
+    "task_id": "t40",
+    "answer": "```python\nprint(42)\n```"
+  }
+]

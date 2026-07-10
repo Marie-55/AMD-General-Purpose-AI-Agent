@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         cmake \
         gcc \
         g++ \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -33,7 +34,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # We pin a specific version to ensure reproducibility.               #
 # ------------------------------------------------------------------ #
 RUN CMAKE_ARGS="-DLLAMA_BLAS=OFF -DLLAMA_CUDA=OFF -DLLAMA_METAL=OFF" \
-    pip install --no-cache-dir "llama-cpp-python==0.3.4"
+    pip install --no-cache-dir --prefer-binary "llama-cpp-python==0.3.4"
 
 # ------------------------------------------------------------------ #
 # Application code                                                   #

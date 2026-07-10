@@ -57,8 +57,8 @@ ROLE_CANDIDATE_TIERS = {
 }
 
 CATEGORY_ROLE = {
-    "factual_knowledge": "cheap_general",
     "sentiment": "cheap_general",
+    "factual_knowledge": "cheap_general",
     "summarization": "cheap_alt",
     "ner": "cheap_general",
     "code_debugging": "code_specialist",
@@ -68,7 +68,7 @@ CATEGORY_ROLE = {
 }
 
 # math_reasoning: generate Python script → run locally → Fireworks NL fallback.
-# logic_puzzle: skip code-exec entirely, go directly to Fireworks NL reasoning.
+# logic_puzzle: keep as Fireworks NL reasoning.
 CODE_EXEC_CATEGORIES = {"math_reasoning"}
 LOGIC_NL_CATEGORIES  = {"logic_puzzle"}
 

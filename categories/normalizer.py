@@ -84,8 +84,9 @@ _FLUFF_RE = [re.compile(p, re.IGNORECASE | re.MULTILINE) for p in FLUFF_PATTERNS
 # ---------------------------------------------------------------------------
 CATEGORY_INSTRUCTIONS = {
     "factual_knowledge": (
-        "Answer directly and concisely in 2-4 sentences. "
-        "No preamble, no restating the question."
+        "Answer concisely in 2-3 sentences maximum. "
+        "Do not provide background context. "
+        "Minimize output tokens while maximizing clarity."
     ),
     "math_reasoning": (
         "Show brief step-by-step arithmetic, then finish with a single line: "
@@ -96,30 +97,33 @@ CATEGORY_INSTRUCTIONS = {
         "No explanation, no punctuation, no other text."
     ),
     "summarization": (
-        "Follow any length/format constraint in the prompt EXACTLY. "
-        "If the prompt says 'exactly N words', count carefully and output exactly N words. "
-        "If the prompt says 'exactly N bullet points', output exactly N bullets. "
-        "Output only the summary text — no preamble like 'Here is a summary'."
+        "Answer as concisely and clearly as possible. "
+        "Minimize output tokens while preserving the key meaning. "
+        "Do not add preambles or extra commentary. "
+        "Never apologize, refuse, or state that you cannot determine an answer."
     ),
     "ner": (
-        "Return ONLY a valid JSON array. Each element is an object with exactly two keys: "
-        "'text' (the entity string as it appears in the text) and 'type' (one of: PERSON, ORG, LOCATION, DATE). "
-        "Include ALL entities including dates and locations. "
-        'Example: [{"text":"Alice","type":"PERSON"},{"text":"2024","type":"DATE"},{"text":"Paris","type":"LOCATION"}]. '
-        "No prose, no markdown fences, no keys other than 'text' and 'type'."
+        "Extract named entities as valid JSON only. "
+        "Return a JSON array of objects with keys text and type. "
+        "Use labels PERSON, ORG, LOCATION, or DATE. "
+        "No markdown, backticks, prose, or extra keys. "
+        "If no entities are found, return []."
     ),
     "code_debugging": (
-        "State the bug in one short sentence, then give the corrected function in a single "
-        "Python code block. No other prose."
+        "Return valid JSON only. "
+        "Use an object with keys issues and corrected_parts. "
+        "issues must be an array of short strings describing the bug(s). "
+        "corrected_parts must be an array of objects showing only the corrected code snippets, "
+        "with optional location/original fields. "
+        "Do not add markdown or prose."
     ),
     "logic_puzzle": (
-        "Reason briefly through the clues, then state the final answer clearly on the last line."
+        "Reason through the clues and state the final answer clearly. "
+        "Keep the explanation concise and direct."
     ),
     "code_generation": (
-        "Return ONLY a Python code block that implements the requested function. "
-        "Start your response with ```python on the first line. "
-        "End with ``` on the last line. "
-        "No prose before the block, no docstrings inside, no example usage after."
+        "Return the direct code answer only. Do not say anything before it. "
+        "If you use markdown, start immediately with the code and keep it minimal."
     ),
 }
 
@@ -139,14 +143,14 @@ DEFAULT_INSTRUCTION = "Answer clearly and concisely. Avoid unnecessary preamble.
 #   logic_puzzle       — reasoning trace + final answer; 800 avoids truncation
 #   code_generation    — full function implementation; 1000
 CATEGORY_MAX_TOKENS: dict[str, int] = {
-    "factual_knowledge": 600,
+    "factual_knowledge": 150,
     "math_reasoning":    700,
-    "sentiment":          10,
-    "summarization":     800,
-    "ner":               700,
-    "code_debugging":    900,
-    "logic_puzzle":      800,
-    "code_generation":  1000,
+    "sentiment":         80,
+    "summarization":    180,
+    "ner":              320,
+    "code_debugging":   1000,
+    "logic_puzzle":     900,
+    "code_generation":  900,
 }
 
 DEFAULT_MAX_TOKENS = 600
@@ -179,35 +183,6 @@ _EXACT_BULLET_RE = re.compile(r"exactly\s+(\d+)\s+bullet", re.IGNORECASE)
 
 
 def enforce_summarization_constraint(answer: str, prompt: str) -> str:
-    """Trim or pad a summarization answer to match an exact word-count constraint.
-
-    Only acts when the prompt contains 'exactly N words'.  For bullet-point and
-    'no more than N words' constraints we trust the model and only trim at the
-    hard limit to avoid garbling the answer.
-    """
-    # Exact word count
-    m = _EXACT_WORDS_RE.search(prompt)
-    if m:
-        target = int(m.group(1))
-        words  = answer.split()
-        if len(words) > target:
-            answer = " ".join(words[:target])
-            # Ensure it ends with a period if we trimmed.
-            if answer and not answer[-1] in ".!?":
-                answer = answer.rstrip(",;:") + "."
-        return answer
-
-    # No more than N words — trim only if over limit
-    m = _MAX_WORDS_RE.search(prompt)
-    if m:
-        limit = int(m.group(1))
-        words = answer.split()
-        if len(words) > limit:
-            answer = " ".join(words[:limit])
-            if answer and answer[-1] not in ".!?":
-                answer = answer.rstrip(",;:") + "."
-        return answer
-
     return answer
 
 
