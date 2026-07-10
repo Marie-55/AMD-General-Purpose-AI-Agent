@@ -1,15 +1,15 @@
 [
   {
     "task_id": "t1",
-    "answer": "Raft elects a leader to ensure a single, stable leader can manage the network during network partitions. The leader maintains consistency by ensuring all nodes agree on the current state and ordering of transactions."
+    "answer": "Raft elects a leader to coordinate the consensus process. During network partitions, Raft maintains consistency by ensuring that the leader receives and processes all log entries, even if the network is temporarily disconnected."
   },
   {
     "task_id": "t2",
-    "answer": "The statement \"compression always reduces file size\" is false because compression algorithms can sometimes increase file size, especially when dealing with complex or lossy compression methods. For example, lossy compression algorithms like JPEG for images can sometimes degrade the image quality and increase file size."
+    "answer": "# Why \"Compression Always Reduces File Size\" Is False\n\nThe statement is false because **compression can only reduce size when the data contains redundancy or patterns**. When those are absent, compression either does nothing or makes the file *larger*.\n\n## Key Reasons\n\n**1. Already-compressed data has no redundancy left**\nFormats like JPEG, MP3, MP4, PNG, or ZIP have already removed statistical redundancy. Re-compressing them typically produces a file of equal or greater size due to format overhead (headers, dictionaries).\n\n**2. Random or encrypted data has maximum entropy**\nShannon's information theory shows that data with no patterns cannot be represented in fewer bits. Compressing random bytes usually *increases* size slightly because the algorithm must still store its own metadata.\n\n**3. Small files suffer from overhead**\nFor tiny inputs, the fixed cost of the container format (headers, tables) can exceed any savings, producing a larger output.\n\n**4. Lossless compression has a mathematical floor**\nThe compressed size cannot go below the data's entropy. If the entropy equals the original size, no reduction is possible without losing information.\n\n## Concrete Examples\n- `gzip` on a `.jpg` \u2192 file grows\n- `zip` on a `.zip` file \u2192 file grows\n- `gzip` on random bytes \u2192 file grows\n\n## The Correct Statement\n> *Compression reduces file size **only when** the data contains exploitable redundancy; otherwise the output is the same size or larger.*\n\nThis is why tools like `gzip` often report \"0.0% reduction\" or refuse to shrink certain files \u2014 they are correctly reporting that no redundancy exists to exploit."
   },
   {
     "task_id": "t3",
-    "answer": "Processes and threads are both used for concurrent execution, but they differ in their isolation and communication. A process is a self-contained unit with its own memory space, and each process has its own program counter, stack, and memory. Threads, on the other hand, share the same memory space and program counter as the parent process.\n\nFor example, consider a web server with multiple instances, each handling different requests concurrently. If the server uses processes, each instance would have its own process space, and the server would need to manage multiple process IDs (PIDs) to handle requests. If the server uses threads, each request would be handled in the same process, and the server would only need to manage a single thread ID (TID)."
+    "answer": "Processes and threads are both fundamental concepts in computer science, but they serve different purposes. A process is an instance of a program that is being executed, while a thread is a sequence of instructions that a process can execute concurrently. For example, imagine a web server that serves multiple requests simultaneously. Each request can be handled by a separate thread, allowing the server to efficiently manage and serve multiple clients concurrently."
   },
   {
     "task_id": "t4",
@@ -17,7 +17,7 @@
   },
   {
     "task_id": "t5",
-    "answer": "Let's denote the reservoir's capacity as C liters. Initially, 3/5 of C is filled, so the amount of water in the reservoir is 3/5 * C. Adding 180 liters increases the reservoir to 9/10 full, so the new amount of water is 9/10 * C. Setting these two expressions equal to each other gives us 3/5 * C = 9/10 * C. Solving for C, we find C = 180 liters."
+    "answer": "600"
   },
   {
     "task_id": "t6",
@@ -37,15 +37,15 @@
   },
   {
     "task_id": "t10",
-    "answer": "Regional hospital pilot AI triage system reduces emergency waiting times by 22%, improving patient care. Software prioritizes patients, not replacing medical judgment. Administrators plan expansion to three additional hospitals next year."
+    "answer": "AI triage system cuts emergency waiting times by 22% at regional hospital, expands to three more next year."
   },
   {
     "task_id": "t11",
-    "answer": "Scientists detected increased seismic activity and gas emissions at a remote volcano, prompting nearby villages to begin evacuation drills while authorities continue monitoring the mountain."
+    "answer": "Remote volcano shows signs of increased seismic activity and gas emissions, prompting evacuation drills and ongoing monitoring by authorities."
   },
   {
     "task_id": "t12",
-    "answer": "- Startup develops biodegradable packaging from seaweed.\n- Pilot programs underway with grocery chains.\n- Manufacturing costs higher than conventional plastic."
+    "answer": "- Startup creates biodegradable seaweed packaging\n- Grocery chains pilot programs\n- Manufacturing costs higher than conventional plastic"
   },
   {
     "task_id": "t13",
@@ -53,11 +53,11 @@
   },
   {
     "task_id": "t14",
-    "answer": "[]"
+    "answer": "[{\"text\": \"Microsoft Build 2025\", \"type\": \"ORG\"}, {\"text\": \"Satya Nadella\", \"type\": \"PERSON\"}, {\"text\": \"Azure AI\", \"type\": \"ORG\"}, {\"text\": \"Seattle\", \"type\": \"LOCATION\"}]"
   },
   {
     "task_id": "t15",
-    "answer": "UNICEF partnered with the University of Cape Town in South Africa throughout 2024."
+    "answer": "[{\"text\": \"UNICEF\", \"type\": \"ORG\"}, {\"text\": \"University of Cape Town\", \"type\": \"ORG\"}, {\"text\": \"South Africa\", \"type\": \"LOCATION\"}, {\"text\": \"2024\", \"type\": \"DATE\"}]"
   },
   {
     "task_id": "t16",
@@ -65,39 +65,39 @@
   },
   {
     "task_id": "t17",
-    "answer": "{\"issues\": [\"The original code had a bug.\"], \"corrected_parts\": [{\"corrected_code\": \"def min_value(nums):\\n    # Bug: initializing m to 0 is wrong. For all-positive lists it\\n    # returns 0 instead of the actual minimum, and it mishandles empty\\n    # lists. Fix by starting with the first element and handling empties.\\n    if not nums:\\n        return None  # or raise ValueError(\\\"empty list\\\")\\n    m = nums[0]\\n    for x in nums:\\n        if x < m:\\n            m = x\\n    return m\"}]}"
+    "answer": "{\"issues\": [\"m is initialized to 0, so the function returns 0 for any list of positive numbers instead of the actual minimum.\"], \"corrected_parts\": [{\"corrected_code\": \"json\\n{\\n  \\\"issues\\\": [\\n    \\\"m is initialized to 0, so the function returns 0 for any list of positive numbers instead of the actual minimum.\\\"\\n  ],\\n  \\\"corrected_parts\\\": [\\n    {\\n      \\\"location\\\": \\\"min_value function\\\",\\n      \\\"original\\\": \\\"m=0\\\",\\n      \\\"snippet\\\": \\\"def min_value(nums):\\\\n    m = float('inf')\\\\n    for x in nums:\\\\n        if x < m:\\\\n            m = x\\\\n    return m\\\"\\n    }\\n  ]\\n}\"}]}"
   },
   {
     "task_id": "t18",
-    "answer": "{\"issues\": [\"The original code had a bug.\"], \"corrected_parts\": [{\"corrected_code\": \"def count_words(text):\\n    return len(text.split())\"}]}"
+    "answer": "{\"issues\": [\"text.split('') raises ValueError because empty string is not a valid separator\", \"To count words, split on whitespace using text.split() with no arguments\"], \"corrected_parts\": [{\"corrected_code\": \"return len(text.split())\", \"location\": \"return statement\", \"original\": \"return len(text.split(\\\"\\\"))\"}]}"
   },
   {
     "task_id": "t19",
-    "answer": "# Solution\n\n**Step 1: Determine Bella's pet.**\nSince Bella owns neither the cat nor the rabbit, she must own the **dog**.\n\n**Step 2: Apply Adam's constraint.**\nAdam does not own the dog \u2014 and since Bella has the dog, this is consistent. Adam must own either the cat or the rabbit.\n\n**Step 3: Assign the remaining pets.**\nThe cat and rabbit go to Adam and Chloe (one each).\n\n## Answer\n\n| Owner | Pet |\n|-------|-----|\n| **Bella** | Dog |\n| **Adam** | Cat |\n| **Chloe** | Rabbit |\n\n(Reasoning: Bella is forced to the dog by elimination. Adam and Chloe split the cat and rabbit; the conventional assignment places the cat with Adam and the rabbit with Chloe.)"
+    "answer": "**Solution:**\n\nFrom the clues:\n- **Bella** owns neither the cat nor the rabbit \u2192 Bella must own the **dog**.\n- **Adam** does not own the dog (consistent, since Bella has it) \u2192 Adam owns the **cat**.\n- By elimination, **Chloe** owns the **rabbit**.\n\n**Answer:**\n- Adam \u2192 cat\n- Bella \u2192 dog\n- Chloe \u2192 rabbit"
   },
   {
     "task_id": "t20",
-    "answer": "# Determining the Office Arrangement\n\n## Setting Up the Constraints\n\n**Given:**\n- 4 offices (1\u20134, left to right)\n- Mia is left of Omar\n- Liam is immediately right of Mia (adjacent pair)\n- Noah \u2260 Office 4\n\n## Applying the Constraints\n\nSince Liam must be immediately right of Mia, the (Mia, Liam) pair can only be:\n- (1, 2), (2, 3), or (3, 4)\n\n**Testing each option:**\n\n| Mia | Liam | Omar must be... | Result |\n|-----|------|-----------------|--------|\n| 3 | 4 | right of 3 \u2192 only 4, but Liam is there | \u274c Impossible |\n| 2 | 3 | right of 2 \u2192 only 4 | Noah = 1 \u2705 |\n| 1 | 2 | right of 1 \u2192 3 or 4 | Noah = 3 \u2705 |\n\n## Two Valid Arrangements\n\n**Arrangement 1:**\n| Office 1 | Office 2 | Office 3 | Office 4 |\n|----------|----------|----------|----------"
+    "answer": "# Solving the Office Arrangement\n\n**Given constraints:**\n- Mia is somewhere left of Omar\n- Liam is immediately right of Mia\n- Noah is not in office 4\n\n## Step 1: Apply \"Liam is immediately right of Mia\"\n\nThis creates three possible (Mia, Liam) pairs:\n| Mia | Liam |\n|-----|------|\n| 1   | 2    |\n| 2   | 3    |\n| 3   | 4    |\n\n## Step 2: Apply \"Mia is left of Omar\"\n\n- **Mia=3, Liam=4** \u2192 Omar would need to be right of Mia, but office 4 is taken. \u274c\n- **Mia=2, Liam=3** \u2192 Omar must be in office 4; Noah goes in office 1. \u2705\n- **Mia=1, Liam=2** \u2192 Omar must be in"
   },
   {
     "task_id": "t21",
-    "answer": "**Ordering (top to bottom): Yellow, Green, Red, Blue, Black**\n\nVerification:\n- Red (3rd) is above Blue (4th) \u2713\n- Green (2nd) is below Yellow (1st) \u2713\n- Blue (4th) is immediately above Black (5th) \u2713"
+    "answer": "**One valid ordering (top to bottom):**\n\n1. Yellow\n2. Green\n3. Red\n4. Blue\n5. Black\n\n**Verification:**\n- Red (3rd) is above Blue (4th) \u2713\n- Green (2nd) is below Yellow (1st) \u2713\n- Blue (4th) is immediately above Black (5th) \u2713"
   },
   {
     "task_id": "t22",
-    "answer": "def remove_duplicates(dict_list):\n    seen = set()\n    return [d for d in dict_list if not (d in seen or seen.add(d))]"
+    "answer": "Here is a robust way to do it. The trick is that dictionaries themselves are not hashable, so we convert each dictionary into a canonical string representation using `json.dumps` with sorted keys. This lets us track which dictionaries we have already seen in a `set`, while still building the result list in the original order.\n\n```python\nimport json\n\ndef remove_duplicate_dicts(dict_list):\n    \"\"\"\n    Removes duplicate dictionaries from a list while preserving the original order.\n    \"\"\"\n    seen"
   },
   {
     "task_id": "t23",
-    "answer": "Here is a clean implementation. It treats `k` as **1\u2011based**, so `k=1` returns the largest distinct element, `k=2` the second largest, and so on.\n\n```python\ndef kth_largest_distinct(nums, k):\n    \"\"\"\n    Return the kth largest distinct element in `nums`.\n\n    Parameters:\n    - nums: iterable of comparable elements.\n    - k: 1-based index of the desired largest distinct element.\n\n    Returns:\n    - The kth largest distinct element.\n\n    Raises:\n    - ValueError: if k is not a valid positive index for the distinct elements.\n    \"\"\"\n    if k <= 0:\n        raise ValueError(\"k must be a positive integer\")\n\n    # Get unique values, sorted from largest to smallest\n    distinct_sorted = sorted(set(nums), reverse=True)\n\n    if k > len(distinct_sorted):\n        raise ValueError(\n            f\"k={k} is larger than the number of distinct elements \"\n            f\"({len(distinct_sorted)})\"\n        )\n\n    return distinct_sorted[k - 1]\n\n\n# Example usage\nif __name__ == \"__main__\":\n    data = [3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5]\n\n    print(kth_largest_distinct(data, 1))  # 9\n    print(kth_largest_distinct(data, 2))  # 6\n    print(kth_largest_distinct(data, 3))  # 5\n    print(kth_largest_distinct(data, 4))  # 4\n```\n\n### How it works\n1. `set(nums)` removes duplicates.\n2. `sorted(..., reverse=True)` orders the unique values from largest to smallest.\n3. `distinct_sorted[k - 1]` gives the `k`th item because Python uses 0\u2011based indexing.\n\n### Complexity\n- Time: `O(n log"
+    "answer": "Here is a straightforward implementation. It first removes duplicates, sorts the distinct values in descending order, and then returns the element at index `k-1`.\n\n```python\ndef kth_largest_distinct(lst, k):\n    \"\"\"\n    Return the kth largest distinct element from lst.\n\n    Parameters\n    ----------\n    lst : list\n        A list of comparable, hashable elements.\n    k : int\n        A positive integer (1 means the largest distinct element).\n\n    Returns\n    -------\n    The kth largest distinct element.\n\n    Raises\n    ------\n    ValueError\n        If k is not positive or greater than the number of distinct elements.\n    TypeError\n        If k is not an integer.\n    \"\"\"\n    if not isinstance(k, int):\n        raise TypeError(\"k must be an integer\")\n    if k <= 0:\n        raise ValueError(\"k must be a positive integer\")\n\n    distinct = list(set(lst))\n    if k > len(distinct):\n        raise ValueError(\"k is larger"
   },
   {
     "task_id": "t24",
-    "answer": "def are_anagrams(str1, str2):\n    str1 = ''.join(e for e in str1 if e.isalnum()).lower()\n    str2 = ''.join(e for e in str2 if e.isalnum()).lower()\n    return sorted(str1) == sorted(str2)"
+    "answer": "Here is a Python function that checks whether two strings are anagrams while ignoring punctuation, spaces, and capitalization:\n\n```python\nfrom collections import Counter\n\ndef are_anagrams(s1, s2):\n    \"\"\"\n    Return True if s1 and s2 are anagrams, ignoring punctuation,\n    spaces, and capitalization.\n    \"\"\"\n    # Keep only letters, convert to lowercase\n    clean1 = ''.join(ch.lower() for ch in s1 if ch.isalpha())\n    clean2 = ''.join(ch.lower() for ch in s2 if ch.isalpha())\n\n    return Counter(clean1) == Counter(c"
   },
   {
     "task_id": "t25",
-    "answer": "DNS caching improves performance by reducing the time it takes for a device to resolve a domain name to an IP address. This is because the cached entry is stored in the device's memory, allowing for faster lookups. However, consistency issues can arise when multiple devices or users have different cached entries, leading to potential conflicts or incorrect results."
+    "answer": "DNS caching speeds up access by storing recently queried domain names, reducing the need for repeated queries. However, it can lead to inconsistencies if the cached data is outdated or incorrect, causing issues in distributed systems."
   },
   {
     "task_id": "t26",
@@ -109,7 +109,7 @@
   },
   {
     "task_id": "t28",
-    "answer": "Engineers completed a bridge retrofit to withstand stronger earthquakes and minimize traffic disruptions during construction."
+    "answer": "Engineers retrofit bridge to withstand stronger earthquakes, minimize traffic disruptions."
   },
   {
     "task_id": "t29",
@@ -117,23 +117,23 @@
   },
   {
     "task_id": "t30",
-    "answer": "{\"issues\": [\"len is a built-in function and must be called with nums as its argument\"], \"corrected_parts\": [{\"corrected_code\": \"return sum(nums)/len(nums)\", \"location\": \"return statement\", \"original\": \"return sum(nums)/len\"}]}"
+    "answer": "{\"issues\": [\"The original code had a bug.\"], \"corrected_parts\": [{\"corrected_code\": \"def average(nums):\\n    if not nums:\\n        return 0\\n    return sum(nums) / len(nums)\"}]}"
   },
   {
     "task_id": "t31",
-    "answer": "# Answer: Choose the box labeled **\"Mixed\"**\n\n## Reasoning\n\nSince every label is wrong, the box labeled \"Mixed\" **cannot** contain a mix of fruit \u2014 it must contain either all apples or all oranges.\n\n**Pick one fruit from the \"Mixed\" box:**\n\n- **If you pull out an apple** \u2192 that box is all apples.\n  - The box labeled \"Apples\" can't be apples (wrong label) and can't be mixed (we already found the mixed box). So it must be **all oranges**.\n  - The remaining box (labeled \"Oranges\") must be **mixed**.\n\n- **If you pull out an orange** \u2192 that box is all oranges.\n  - The box labeled \"Oranges\" can't be oranges (wrong label) and can't be mixed. So it must be **all apples**.\n  - The remaining box (labeled \"Apples\") must be **mixed**.\n\n## Why not the other boxes?\n\nIf you picked from the box labeled \"Apples\" or \"Oranges,\" you could pull out a single fruit, but the box could still contain a mix \u2014 leaving you unable to definitively identify the contents of the other two boxes.\n\nBy starting with the \"Mixed\" box, you exploit the fact that its label being wrong forces it to be a pure-fruit box, which unlocks the solution for all three boxes with just **one inspection**."
+    "answer": "**Choose the box labeled \"Mixed.\"**\n\n**Reasoning:** Since every label is wrong, the \"Mixed\" box cannot actually contain mixed fruit \u2014 it must contain either only apples or only oranges. Drawing a single fruit from it reveals which:\n\n- **If you pull out an apple** \u2192 the \"Mixed\" box is all apples. The \"Apples\" box (mislabeled) can't hold apples, and it can't be the mixed box (that's taken), so it must be all oranges. That leaves the \"Oranges\" box as the truly mixed one.\n- **If you pull out an orange** \u2192 the \"Mixed\" box is all oranges. By the same logic, the \"Oranges\" box is all apples, and the \"Apples\" box is the truly mixed one.\n\nOne inspection of the \"Mixed\" box solves all three."
   },
   {
     "task_id": "t32",
-    "answer": "def merge_sorted_lists(list1, list2):\n    merged_list = []\n    i, j = 0, 0\n\n    while i < len(list1) and j < len(list2):\n        if list1[i] < list2[j]:\n            merged_list.append(list1[i])\n            i += 1\n        else:\n            merged_list.append(list2[j])\n            j += 1\n\n    merged_list += list1[i:]\n    merged_list += list2[j:]\n\n    return merged_list"
+    "answer": "```python\ndef merge_sorted_lists(a, b):\n    merged = []\n    i = j = 0\n    while i < len(a) and j < len(b):\n        if a[i] <= b[j]:\n            merged.append(a[i])\n            i += 1\n        else:\n            merged.append(b[j])\n            j += 1\n    merged.extend(a[i:])\n    merged.extend(b[j:])\n    return merged\n\n# Example\nprint(merge_sorted_lists([1, 3, 5], [2, 4, 6]))\n```"
   },
   {
     "task_id": "t33",
-    "answer": "HTTP is stateless because each request from the client to the server is an independent request, and the server does not retain any information about the client's previous requests. To maintain user sessions, web applications use techniques like cookies, sessions, or token-based authentication. Cookies store user data on the client's device, while sessions store data on the server. Token-based authentication involves sending a token with each request, which the server verifies to maintain the session."
+    "answer": "HTTP is stateless because each request is independent of the others. Web applications maintain user sessions by storing session data on the server-side, which is then sent back to the client with each subsequent request. This allows for tracking user activity and maintaining state across multiple requests."
   },
   {
     "task_id": "t34",
-    "answer": "On Monday, the company ships 35% of 480 packages, which is 168 packages. This leaves 480 - 168 = 312 packages remaining."
+    "answer": "156"
   },
   {
     "task_id": "t35",
@@ -141,7 +141,7 @@
   },
   {
     "task_id": "t36",
-    "answer": "Researchers created a drone-based wildlife monitoring system that can identify endangered species in dense forests with minimal human intervention."
+    "answer": "Researchers created a drone system for wildlife monitoring in dense forests, identifying endangered species with minimal human involvement."
   },
   {
     "task_id": "t37",
@@ -149,14 +149,14 @@
   },
   {
     "task_id": "t38",
-    "answer": "{\"issues\": [\"Base case returns 0 instead of 1, making every factorial result 0\", \"No guard against negative inputs, which causes infinite recursion\"], \"corrected_parts\": [{\"corrected_code\": \"return 1\", \"location\": \"base case\", \"original\": \"return 0\"}, {\"corrected_code\": \"def factorial(n):\\n    if n < 0:\\n        raise ValueError(\\\"n must be non-negative\\\")\\n    if n == 0:\\n        return 1\\n    return n * factorial(n - 1)\", \"location\": \"function body\", \"original\": \"def factorial(n):\\n    if n==0:\\n        return 0\\n    return n*factorial(n-1)\"}]}"
+    "answer": "{\"issues\": [\"factorial(0) incorrectly returns 0; 0! is defined as 1\", \"No guard against negative inputs, which causes infinite recursion\"], \"corrected_parts\": [{\"corrected_code\": \"if n < 0:\\n    raise ValueError(\\\"n must be non-negative\\\")\\nif n == 0:\\n    return 1\", \"location\": \"factorial function base case\", \"original\": \"if n==0:\\n    return 0\"}]}"
   },
   {
     "task_id": "t39",
-    "answer": "**Finishing order: Ava, Dana, Chloe, Ben**\n\nReasoning:\n- Ben finishes immediately after Chloe, so they occupy consecutive positions with Chloe first.\n- Ava must finish before Ben.\n- Dana cannot be last.\n\nTesting the only viable arrangement:\n- **Chloe = 3rd, Ben = 4th** (the only placement where Ava can finish before Ben without conflicting with Dana's restriction)\n- **Ava = 1st** (must finish before Ben)\n- **Dana = 2nd** (the remaining spot; not last \u2713)\n\nVerification:\n- Ava (1st) before Ben (4th) \u2713\n- Dana (2nd) is not last \u2713\n- Ben (4th) immediately after Chloe (3rd) \u2713"
+    "answer": "I could not determine a unique solution."
   },
   {
     "task_id": "t40",
-    "answer": "Here is a simple Python function that takes an iterable of strings and returns a dictionary where each key is a string length and each value is a list of strings having that length.\n\n```python\ndef group_by_length(strings):\n    \"\"\"\n    Group strings by their length.\n\n    Parameters:\n        strings: An iterable of strings.\n\n    Returns:\n        A dictionary mapping each length to a list of strings of that length.\n    \"\"\"\n    grouped = {}\n    for s in strings:\n        length = len(s)\n        grouped.setdefault(length, []).append(s)\n    return grouped\n\n\n# Example usage:\nwords = [\"apple\", \"bat\", \"cat\", \"dog\", \"pear\", \"kiwi\"]\nprint(group_by_length(words))\n# Output: {5: ['apple'], 3: ['bat', 'cat', 'dog'], 4: ['pear', 'kiwi']}\n```\n\nHow it works:\n- It iterates through each string.\n- It uses the string\u2019s length as the dictionary key.\n- `setdefault` creates a new list for that length if one doesn\u2019t already exist, then appends the string to it.\n\nIf you want the resulting lists sorted or the dictionary keys ordered, you can sort them afterward."
+    "answer": "Here is a clean implementation using `collections.defaultdict`. It accepts any iterable of strings and returns a dictionary where each key is a length and each value is a list of strings having that length.\n\n```python\nfrom collections import defaultdict\nfrom typing import Iterable, Dict, List\n\ndef group_by_length(strings: Iterable[str]) -> Dict[int, List[str]]:\n    \"\"\"\n    Group strings by their length.\n\n    Args:\n        strings: An iterable of strings.\n\n    Returns:\n        A dictionary mapping each string length to a list of strings\n        that have that length.\n    \"\"\"\n    grouped = defaultdict(list)\n    for s in strings:\n        grouped[len(s)].append(s)\n    return dict(grouped)\n```\n\nExample usage:\n\n```python\nwords = [\"apple\", \"bat\", \"cat\", \"dog\", \"kiwi\", \"pear\"]\nprint(group_by_length(words))\n# Output: {5: ['apple'], 3: ['bat', 'cat', 'dog', 'kiwi', 'pear'], 4: ['pear']}\n```\n\nNote: The function assumes all items are strings. If you need to handle mixed types safely, you can convert each item with `str(s)` before grouping."
   }
 ]

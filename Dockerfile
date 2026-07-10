@@ -7,18 +7,6 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# ------------------------------------------------------------------ #
-# System build deps needed to compile llama-cpp-python from source.  #
-# We remove the build tools after installation to keep image lean.   #
-# ------------------------------------------------------------------ #
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-        cmake \
-        gcc \
-        g++ \
-    libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 
 # ------------------------------------------------------------------ #
@@ -29,27 +17,33 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ------------------------------------------------------------------ #
-# llama-cpp-python — CPU-only build with BLAS disabled so it works   #
-# on the 2-vCPU / no-GPU evaluation environment.                     #
-# We pin a specific version to ensure reproducibility.               #
+# llama-cpp-python compilation and build tools                       #
+# System build deps needed to compile llama-cpp-python from source.  #
+# We install build tools, compile llama-cpp-python (forcing source   #
+# build), and remove the build tools in a single step to keep lean.  #
 # ------------------------------------------------------------------ #
-RUN CMAKE_ARGS="-DLLAMA_BLAS=OFF -DLLAMA_CUDA=OFF -DLLAMA_METAL=OFF" \
-    pip install --no-cache-dir --prefer-binary "llama-cpp-python==0.3.4"
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        cmake \
+        gcc \
+        g++ \
+        libgomp1 \
+    && CMAKE_ARGS="-DLLAMA_BLAS=OFF -DLLAMA_CUDA=OFF -DLLAMA_METAL=OFF -DGGML_NATIVE=OFF -DLLAMA_NATIVE=OFF" \
+       pip install --no-cache-dir --no-binary llama-cpp-python "llama-cpp-python==0.3.4" \
+    && apt-get purge -y build-essential cmake gcc g++ \
+    && apt-get autoremove -y \
+    && rm -rf /var/lib/apt/lists/*
 
 # ------------------------------------------------------------------ #
-# Application code                                                   #
+# Application code & models                                          #
 # ------------------------------------------------------------------ #
+# COPY . . will copy both the application code and the models/ directory.
 COPY . .
 
-# ------------------------------------------------------------------ #
-# Bundled local model weights.                                       #
-# The models/ directory is populated on the developer machine by     #
-# running:  python setup_local_models.py                             #
-# That script is NOT pushed to the image build — the weights are.   #
-# ------------------------------------------------------------------ #
-# The COPY below copies models/ if it exists.  Docker will error if
-# models/ is missing; run setup_local_models.py first.
-COPY models/ /app/models/
+# Ensure models exist to prevent silent failures if setup_local_models.py
+# wasn't run before building the Docker image.
+RUN test -d models && ls models/*.gguf > /dev/null 2>&1 || \
+    { echo "Error: models/*.gguf not found. Run python setup_local_models.py first."; exit 1; }
 
 # ------------------------------------------------------------------ #
 # Environment profile + local model paths baked into the image.      #
