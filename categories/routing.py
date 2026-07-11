@@ -46,22 +46,27 @@ ROLE_CANDIDATE_TIERS = {
         ["gemma-4-31b-it", "a4b"],
         ["minimax-m3", "minimax"],
     ],
+    "code_specialist": [
+        ["kimi", "code"],
+        ["minimax-m3", "minimax"],   # fallback when kimi is down
+    ],
     # Summarization: try the cheapest quantised model first, escalate to the
     # full-precision Gemma if the answer is poor, then fall through to minimax.
     # Tier order MUST be cheapest → best so route() and route_summarization_fallback()
     # both traverse in the right direction.
     "summarization": [
         ["gemma-4-26b-a4b-it"],   # tier-1: cheapest
-        ["minimax-m3"],         # tier-2: always-on safety net
+         ["kimi", "code"],
+        ["minimax-m3", "minimax"],         # tier-2: always-on safety net
     ],
     # code categories: no cheaper substitute makes sense here, so a single
     # tier -- if the code specialist is down we want the direct-answer
     # fallback in main.py to kick in, not a silent swap to a weaker fit.
-    "code_specialist": [
-        ["kimi", "code"],
-    ],
+    # "code_specialist": [
+    #     ["kimi", "code"],
+    # ],
     "reasoning_specialist": [
-        ["minimax"],
+        ["minimax-m3" , "minimax"],
     ],
     # In ROLE_CANDIDATE_TIERS, ADD this new role:
 "ner_general": [

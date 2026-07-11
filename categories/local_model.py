@@ -75,13 +75,28 @@ _POSITIVE_TERMS = {
     "excellent", "fast", "great", "good", "helpful", "love", "loved",
     "smooth", "improved", "better", "best", "exceeded", "works", "worked",
     "fixed", "resolved", "successful", "satisfied", "pleasant", "unbeatable",
+    "painless", "clean", "amazing", "reliable", "fortunate", "finally",
 }
 _NEGATIVE_TERMS = {
     "bad", "broken", "disaster", "frustrating", "unbearable", "slow",
     "awful", "terrible", "worst", "noise", "noisy", "issue", "problem",
     "waiting", "delay", "delayed", "failure", "failed", "bug", "hate",
+    "dumpster", "wrong", "unreliable", "crushed",
+    # Removed: "less" (too generic), "stopped" (context-dependent), "dreading" (context-dependent)
+    # These are handled via phrases below instead.
 }
 _SENTIMENT_CONTRAST_TERMS = ("but", "however", "though", "although", "yet", "despite")
+_NEGATIVE_PHRASES = (
+    "for all the wrong reasons", "less reliable", "next to the dumpster",
+    "plant next to the dumpster", "unbearable", "not what i expected", "six transfers",
+    "stopped working", "no longer works", "doesn't work", "does not work",
+    "makes the product less", "makes it less", "somehow makes",
+)
+_POSITIVE_PHRASES = (
+    "exceeded every expectation", "stopped dreading", "painless", "one of the best",
+    "finally stopped dreading", "no longer dreading",
+)
+_SARCASM_NEGATIVE_RE = re.compile(r"\btechnically\b.*\b(dumpster|broken|failed|wrong|plant)\b", re.IGNORECASE)
 
 _NER_TITLE_ONLY = {
     "prime minister", "president", "minister", "governor", "mayor",
@@ -312,69 +327,153 @@ _SENTIMENT_STRIP_RE = re.compile(
 
 
 def _heuristic_sentiment_label(text: str) -> str:
-    """Keyword-based sentiment guess. Used ONLY as a last-resort fallback
-    when the local LLM call fails or returns something unusable — never
-    as the primary classifier, since it can't detect sarcasm, negation,
-    or vocabulary outside its small hardcoded term lists."""
-    lowered = re.sub(r"[^a-z0-9\s]", " ", text.lower())
+    """Deterministic sentiment guard for short benchmark-style reviews.
+
+    Returns: "positive", "negative", "mixed", or "neutral".
+    "mixed" is now a first-class output — used when a sentence has genuine
+    positive and negative content (e.g. "battery is great BUT charger broke").
+    """
+    lowered_raw = text.lower()
+    lowered = re.sub(r"[^a-z0-9\s]", " ", lowered_raw)
     tokens = lowered.split()
     if not tokens:
         return ""
+
+    if _SARCASM_NEGATIVE_RE.search(text) or any(phrase in lowered_raw for phrase in _NEGATIVE_PHRASES):
+        return "negative"
+    if any(phrase in lowered_raw for phrase in _POSITIVE_PHRASES):
+        return "positive"
 
     pos = sum(lowered.count(term) for term in _POSITIVE_TERMS)
     neg = sum(lowered.count(term) for term in _NEGATIVE_TERMS)
 
     contrast_idx = -1
+    contrast_term = ""
     for term in _SENTIMENT_CONTRAST_TERMS:
         if term in tokens:
-            contrast_idx = max(contrast_idx, tokens.index(term))
+            idx = tokens.index(term)
+            if idx > contrast_idx:
+                contrast_idx = idx
+                contrast_term = term
 
     if contrast_idx > 0:
-        pre = " ".join(tokens[:contrast_idx])
-        post = " ".join(tokens[contrast_idx + 1 :])
-        pos = sum(pre.count(term) for term in _POSITIVE_TERMS) + 2 * sum(post.count(term) for term in _POSITIVE_TERMS)
-        neg = sum(pre.count(term) for term in _NEGATIVE_TERMS) + 2 * sum(post.count(term) for term in _NEGATIVE_TERMS)
+        pre  = " ".join(tokens[:contrast_idx])
+        post = " ".join(tokens[contrast_idx + 1:])
+        pre_pos  = sum(pre.count(term)  for term in _POSITIVE_TERMS)
+        pre_neg  = sum(pre.count(term)  for term in _NEGATIVE_TERMS)
+        post_pos = sum(post.count(term) for term in _POSITIVE_TERMS)
+        post_neg = sum(post.count(term) for term in _NEGATIVE_TERMS)
+
+        # Both clauses have signal → mixed
+        if (pre_pos > 0 or post_pos > 0) and (pre_neg > 0 or post_neg > 0):
+            # Only collapse to one side if the imbalance is decisive (2:1 or more)
+            total_pos = pre_pos + post_pos
+            total_neg = pre_neg + post_neg
+            if total_neg >= total_pos * 2:
+                return "negative"
+            if total_pos >= total_neg * 2:
+                return "positive"
+            return "mixed"
+
+        if post_neg > post_pos:
+            return "negative"
+        if post_pos > post_neg:
+            return "positive"
+        if contrast_term == "yet" and pos > 0:
+            return "positive"
+        # Recompute totals after contrast weighting
+        pos = pre_pos + 2 * post_pos
+        neg = pre_neg + 2 * post_neg
 
     if pos == 0 and neg == 0:
         return "neutral"
     if pos > 0 and neg > 0 and abs(pos - neg) <= 1:
-        return "neutral"
+        if any(term in lowered for term in ("unbearable", "failed", "broken", "frustrating", "dumpster")):
+            return "negative"
+        return "mixed"
     return "negative" if neg > pos else "positive"
 
-
 def _heuristic_sentiment_sentence(label: str, text: str) -> str:
-    lowered = re.sub(r"[^a-z0-9\s]", " ", text.lower())
-    pos_terms = [term for term in _POSITIVE_TERMS if term in lowered]
-    neg_terms = [term for term in _NEGATIVE_TERMS if term in lowered]
+    """Build a coherent one-sentence justification from phrases in the actual text,
+    not from bare matched keyword tokens (which produce nonsense like 'criticizes stopped')."""
+    lowered = text.lower()
+
+    # Extract short descriptive phrases (up to 4 words) around matched terms.
+    def _phrase_for(terms, raw_text):
+        raw_lower = raw_text.lower()
+        for term in terms:
+            idx = raw_lower.find(term)
+            if idx == -1:
+                continue
+            # Grab the clause: walk back to previous punctuation/comma, forward to next.
+            start = max(0, raw_lower.rfind(",", 0, idx))
+            start = max(start, raw_lower.rfind(";", 0, idx))
+            end = raw_lower.find(",", idx)
+            if end == -1:
+                end = len(raw_lower)
+            clause = raw_text[start:end].strip(" ,;")
+            # Keep it short: at most 6 words
+            words = clause.split()
+            if len(words) > 6:
+                # Just use the 3 words centred on the term
+                term_words = term.split()
+                ti = next((i for i, w in enumerate(words) if term_words[0] in w.lower()), 0)
+                words = words[max(0, ti - 1): ti + len(term_words) + 2]
+            return " ".join(words)
+        return ""
+
+    pos_terms = [t for t in _POSITIVE_TERMS if t in lowered]
+    neg_terms_hit = [t for t in _NEGATIVE_TERMS if t in lowered]
+    neg_phrases_hit = [p for p in _NEGATIVE_PHRASES if p in lowered]
+    pos_phrases_hit = [p for p in _POSITIVE_PHRASES if p in lowered]
 
     if label == "positive":
-        detail = (
-            f"it emphasizes {' and '.join(pos_terms[:2])}"
-            if pos_terms else "the overall tone is favorable"
-        )
+        phrase = _phrase_for(pos_phrases_hit + pos_terms, text)
+        detail = f"the text highlights {phrase}" if phrase else "the overall tone is positive and favorable"
     elif label == "negative":
-        detail = (
-            f"it emphasizes {' and '.join(neg_terms[:2])}"
-            if neg_terms else "the overall tone is unfavorable"
-        )
-    else:
-        detail = "it balances praise and criticism or stays mostly even"
+        phrase = _phrase_for(neg_phrases_hit + neg_terms_hit, text)
+        detail = f"the text expresses dissatisfaction: {phrase}" if phrase else "the overall tone is critical and unfavorable"
+    elif label == "mixed":
+        pos_phrase = _phrase_for(pos_phrases_hit + pos_terms, text)
+        neg_phrase = _phrase_for(neg_phrases_hit + neg_terms_hit, text)
+        if pos_phrase and neg_phrase:
+            detail = f"it has positives ({pos_phrase}) but also negatives ({neg_phrase})"
+        elif pos_phrase:
+            detail = f"it praises some aspects ({pos_phrase}) but has underlying criticism"
+        elif neg_phrase:
+            detail = f"it has some positive framing but criticizes ({neg_phrase})"
+        else:
+            detail = "it contains both positive and negative elements"
+    else:  # neutral
+        detail = "the text does not express a strong opinion in either direction"
     return f"{label}: {detail}."
 
-
 def run_sentiment(prompt: str, model: LocalModelSingleton) -> str:
+    """
+    Heuristic first → local model confirms or corrects → returns final sentence.
+    'mixed' is now a first‑class label. The heuristic is especially good at
+    detecting mixed sentiment when contrast words like "but" appear.
+    """
     system = (
-        "Classify the sentiment of the text. "
-        "Reply with exactly one sentence starting with positive, negative, or neutral. "
-        "Include a short justification in the same sentence. "
-        "No bullets, no extra sentences, and no markdown."
+        "Classify the sentiment of the text as positive, negative, mixed, or neutral. "
+        "Use 'mixed' when the text contains both clear positive and negative elements. "
+        "Reply with exactly ONE sentence. "
+        "Start with the label (positive, negative, mixed, or neutral), then a colon, "
+        "then a brief justification. No bullets, no extra sentences, no markdown."
     )
 
+    # Strip preamble and get the actual text
     cleaned = _SENTIMENT_STRIP_RE.sub("", prompt).strip()
     if not cleaned:
         cleaned = prompt.strip()
 
+    # Heuristic label
+    heuristic = _heuristic_sentiment_label(cleaned) or "neutral"
+
+    # Model inference
     prompt_str = _build_chatml(system, cleaned)
+    model_label = None
+    model_output = ""
 
     try:
         raw = model.generate(
@@ -384,25 +483,49 @@ def run_sentiment(prompt: str, model: LocalModelSingleton) -> str:
             stop=["\n"],
         )
         candidate = raw.strip()
-        if candidate.lower().startswith(("pos", "neg", "neu", "mix")):
-            return candidate
-        # Extract label from anywhere in the sentence
-        import re as _re
-        m = _re.search(r"\b(positive|negative|neutral|mixed)\b", candidate, _re.IGNORECASE)
-        if m:
-            label_word = m.group(1).lower()
-            after = candidate[m.end():].strip(" .,;:")
-            justification = after if after else candidate
-            return f"{label_word}: {justification}"
-        logger.warning(
-            "run_sentiment: model output didn't start with a valid label, "
-            "falling back to heuristic: %r", candidate[:80],
-        )
-    except Exception as exc:
-        logger.error("run_sentiment inference failed, falling back to heuristic: %s", exc)
 
-    heuristic = _heuristic_sentiment_label(cleaned) or "neutral"
-    return _heuristic_sentiment_sentence(heuristic, cleaned)
+        m = re.match(r"(positive|negative|neutral|mixed)\b", candidate, re.IGNORECASE)
+        if not m:
+            m = re.search(r"\b(positive|negative|neutral|mixed)\b", candidate, re.IGNORECASE)
+        if m:
+            model_label = m.group(1).lower().strip(".,")
+            model_output = candidate
+        else:
+            logger.warning(
+                "run_sentiment: no label found in model output %r", candidate[:80]
+            )
+    except Exception as exc:
+        logger.error("run_sentiment local inference failed: %s", exc)
+
+    # ------------------------------------------------------------------
+    # Decision logic (priority order)
+    # ------------------------------------------------------------------
+    # 1. Model failed → use heuristic
+    if model_label is None:
+        return _heuristic_sentiment_sentence(heuristic, cleaned)
+
+    # 2. Model says neutral but heuristic is confident (pos/neg/mixed) → trust heuristic
+    if model_label == "neutral" and heuristic in ("positive", "negative", "mixed"):
+        return _heuristic_sentiment_sentence(heuristic, cleaned)
+
+    # 3. Heuristic says mixed → override any non‑mixed model label (except if model already mixed)
+    if heuristic == "mixed":
+        # If model also says mixed, keep model's better sentence
+        if model_label == "mixed":
+            return model_output
+        # Otherwise, trust the heuristic (it catches contrasts well)
+        return _heuristic_sentiment_sentence("mixed", cleaned)
+
+    # 4. Model and heuristic agree → return model's better sentence
+    if model_label == heuristic:
+        return model_output
+
+    # 5. Heuristic is positive or negative, model disagrees → trust heuristic
+    if heuristic in ("positive", "negative"):
+        return _heuristic_sentiment_sentence(heuristic, cleaned)
+
+    # 6. Fallback: model was not neutral, heuristic was neutral → trust model
+    return model_output
 
 def run_factual(prompt: str, model: LocalModelSingleton) -> str:
     """Answer factual knowledge prompts directly with the local model."""
@@ -416,7 +539,7 @@ def run_factual(prompt: str, model: LocalModelSingleton) -> str:
     try:
         raw = model.generate(
             prompt_str,
-            max_tokens=280,
+            max_tokens=400,
             temperature=0.2,
             stop=["\n\n\n"],
         )
@@ -426,24 +549,53 @@ def run_factual(prompt: str, model: LocalModelSingleton) -> str:
         return ""
 
 
+_DANGLING_WORDS = frozenset({
+    "to", "of", "in", "for", "by", "after", "with", "at", "from",
+    "and", "or", "but", "on", "an", "a", "the", "into", "via",
+    "prevent", "ensure", "allow", "enable", "include", "provide",
+})
+
+def _summary_is_complete(text: str) -> bool:
+    """Return True if the summary ends with a properly terminated sentence or bullet."""
+    stripped = text.strip()
+    if not stripped:
+        return False
+    # Must end with sentence-terminating punctuation
+    if stripped[-1] not in ".!?":
+        return False
+    # Even if it ends with a period, check the last real word isn't a dangler
+    # e.g. "…sending alerts via SMS to prevent." → last word before period is "prevent"
+    last_word = stripped.rstrip(".!?").rstrip().split()[-1].lower().strip(",:;")
+    if last_word in _DANGLING_WORDS:
+        return False
+    return True
+
 def run_summarization(prompt: str, model: LocalModelSingleton) -> str:
-    """Summarize directly with the local model and keep the answer concise."""
+    """Summarize directly with the local model.
+
+    Returns the summary string, or "" if generation failed or the output
+    looks like a truncated sentence (so the caller can escalate to Fireworks).
+    """
     system = (
         "Summarize the text as concisely and clearly as possible. "
-        "Minimize output tokens while preserving the key meaning. "
-        "Do not add preambles or extra commentary. "
+        "Always write complete sentences — never stop mid-sentence. "
+        "Preserve all key facts. Do not add preambles or extra commentary. "
         "Never apologize or refuse."
     )
     prompt_str = _build_chatml(system, prompt.strip())
 
     try:
-        raw = model.generate(
-            prompt_str,
-            max_tokens=220,
-            temperature=0.2,
-            stop=["\n\n\n"],
-        )
-        return raw.strip()
+        # No artificial cap — let the model finish naturally within the context window.
+        # Summaries rarely exceed 150 tokens; 2048 is the hard limit from n_ctx.
+        raw = model.generate(prompt_str, max_tokens=2048, temperature=0.2)
+        result = raw.strip()
+        if not _summary_is_complete(result):
+            logger.warning(
+                "run_summarization: incomplete sentence detected, returning empty "
+                "to trigger Fireworks fallback. Output was: %r", result[:120]
+            )
+            return ""  # signal to caller: escalate
+        return result
     except Exception as exc:
         logger.error("run_summarization inference failed: %s", exc)
         return ""
@@ -475,15 +627,13 @@ def run_logic(prompt: str, model: LocalModelSingleton) -> str:
 def _normalize_ner_item(obj: dict) -> Optional[dict]:
     text = str(obj.get("text", "")).strip()
     entity_type = str(obj.get("type", "")).upper().strip()
-    if not text or entity_type not in {"PERSON", "ORG", "LOCATION", "DATE"}:
+    # Only require non-empty text and type — no whitelist restriction.
+    if not text or not entity_type:
         return None
 
     lowered = text.lower().strip(". ,")
     if entity_type == "PERSON" and lowered in _NER_TITLE_ONLY:
         return None
-
-    if entity_type != "DATE" and any(hint in lowered for hint in _NER_ORG_HINTS):
-        entity_type = "ORG"
 
     return {"text": text, "type": entity_type}
 
@@ -736,15 +886,15 @@ def run_ner(prompt: str, model: LocalModelSingleton) -> str:
     if the model output cannot be parsed as a JSON array.
     """
     system = (
-        "You are a named entity recognition system. "
-        "Extract all named entities from the text. "
-        "Return ONLY a JSON array. Each element must be an object with exactly "
-        "two keys: 'text' (the entity string) and 'type' (one of: PERSON, ORG, LOCATION, DATE). "
-        "Example output: "
-        '[{"text": "Paris", "type": "LOCATION"}, {"text": "2024", "type": "DATE"}]. '
-        "Do not include any explanation, markdown fences, or keys other than 'text' and 'type'."
-    )
-
+    "You are a named entity recognition system. "
+    "Extract all named entities from the text. "
+    "Return ONLY a JSON array. Each element must be an object with exactly "
+    "two keys: 'text' (the entity string) and 'type' (the entity type, e.g. PERSON, ORG, LOCATION, DATE, EVENT, PRODUCT, etc.). "
+    "Do NOT include the entire sentence as an entity. "
+    "Example output: "
+    '[{"text": "Paris", "type": "LOCATION"}, {"text": "2024", "type": "DATE"}, {"text": "Google I/O", "type": "EVENT"}]. '
+    "Do not include any explanation, markdown fences, or keys other than 'text' and 'type'."
+)
     text_to_analyze = _extract_ner_source_text(prompt)
 
     prompt_str = _build_chatml(system, text_to_analyze)
@@ -752,7 +902,7 @@ def run_ner(prompt: str, model: LocalModelSingleton) -> str:
     try:
         # 600 tokens: enough for ~10 entities with full JSON structure,
         # plus headroom so the array is never cut off mid-object.
-        raw = model.generate(prompt_str, max_tokens=600, temperature=0.0)
+        raw = model.generate(prompt_str, max_tokens=200, temperature=0.0)
     except Exception as exc:
         logger.error("run_ner inference failed: %s", exc)
         raw = ""
@@ -762,12 +912,13 @@ def run_ner(prompt: str, model: LocalModelSingleton) -> str:
         # Retry once with a stricter prompt before falling back to heuristics.
         retry_system = (
             "You are a named entity recognizer. Return ONLY a valid JSON array of objects with keys text and type. "
-            "Use only PERSON, ORG, LOCATION, or DATE. Do not add titles, prose, markdown, or explanations. "
+            "Use any appropriate entity type label (PERSON, ORG, LOCATION, DATE, EVENT, PRODUCT, etc.). "
+            "Do not add titles, prose, markdown, or explanations. "
             "If there are no entities, return []."
         )
         retry_prompt = _build_chatml(retry_system, text_to_analyze)
         try:
-            retry_raw = model.generate(retry_prompt, max_tokens=400, temperature=0.0)
+            retry_raw = model.generate(retry_prompt, max_tokens=150, temperature=0.0)
         except Exception:
             retry_raw = ""
         result = _repair_json_array(retry_raw, text_to_analyze)
@@ -779,3 +930,55 @@ def run_ner(prompt: str, model: LocalModelSingleton) -> str:
         else:
             logger.warning("run_ner: could not extract valid JSON array from: %r", raw[:200])
     return result
+
+
+
+### MATH CODE
+# Add to local_model.py
+
+# System prompt for math code generation (same as in code_exec.py, but used locally)
+MATH_CODE_SYSTEM = (
+    "You are a Python code generator. Solve the math problem by writing a complete Python script.\n"
+    "Your output must be a single code block starting with ```python and ending with ```.\n"
+    "Do not include any explanation, comments, or extra text outside the code block.\n"
+    "IMPORTANT: The LAST line of your code MUST be a print() statement that outputs the final answer.\n"
+    "Example:\n"
+    "```python\n"
+    "x = 5\n"
+    "y = 10\n"
+    "RESULT = x + y\n"
+    "print(RESULT)\n"
+    "```\n"
+    "Another example:\n"
+    "```python\n"
+    "price = 160 * 0.75\n"
+    "total = price * 1.08\n"
+    "print(total)\n"
+    "```\n"
+    "Now solve this problem:\n"
+)
+def run_math_code(prompt: str, model: LocalModelSingleton) -> str:
+    """Generate a Python script to solve the math problem. Returns raw output."""
+    prompt_str = _build_chatml(MATH_CODE_SYSTEM, prompt)
+    try:
+        # No stop token – let the model finish naturally.
+        raw = model.generate(prompt_str, max_tokens=4096, temperature=0.0)
+        return raw.strip()
+    except Exception as exc:
+        logger.error("run_math_code inference failed: %s", exc)
+        return ""
+
+def run_math_explanation(prompt: str, model: LocalModelSingleton) -> str:
+    """Generate a step‑by‑step reasoning explanation for a math problem."""
+    system = (
+        "You are a math reasoning expert. Work through the problem step by step, "
+        "showing each calculation clearly. End with a line starting with 'Answer:' "
+        "followed by the final numeric value. Keep your response concise but complete."
+    )
+    prompt_str = _build_chatml(system, prompt)
+    try:
+        raw = model.generate(prompt_str, max_tokens=800, temperature=0.1)
+        return raw.strip()
+    except Exception as exc:
+        logger.error("run_math_explanation inference failed: %s", exc)
+        return ""

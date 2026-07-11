@@ -37,7 +37,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # ------------------------------------------------------------------ #
 # Application code & models                                          #
 # ------------------------------------------------------------------ #
-# COPY . . will copy both the application code and the models/ directory.
 COPY . .
 
 # Ensure models exist to prevent silent failures if setup_local_models.py
@@ -58,7 +57,7 @@ RUN test -d models && ls models/*.gguf > /dev/null 2>&1 || \
 # ALLOWED_MODELS here — those are harness-injected at eval time.    #
 # ------------------------------------------------------------------ #
 ENV EVAL_ENV=docker \
-    LOCAL_MODEL_PATH=/app/models/qwen2.5-1.5b-instruct-q4_k_m.gguf \
+    LOCAL_MODEL_PATH=/app/models/qwen2.5-3b-instruct-q4_k_m.gguf \
     LOCAL_MODEL_FALLBACK_PATH=/app/models/smollm2-1.7b-instruct-q4_k_m.gguf
 
 # ------------------------------------------------------------------ #
