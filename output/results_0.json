@@ -1,0 +1,162 @@
+[
+  {
+    "task_id": "t1",
+    "answer": "Raft elects a leader to centralize log replication and decision-making, ensuring all nodes agree on the same sequence of state changes through a single source of truth. The leader accepts client requests, replicates log entries to followers, and commits entries once a majority acknowledges them, providing a simple and understandable alternative to Paxos. During network partitions, Raft maintains consistency by requiring a majority quorum (typically ⌊N/2⌋+1 nodes) for both leader election and log commits. A partitioned minority cannot elect a new leader or commit new entries, preventing split-brain scenarios. If the previous leader is isolated, it steps down after detecting it can no longer reach a majority, while the remaining majority elects a new leader and continues processing. When the partition heals, the old leader discovers the new term and reverts to follower state, discarding any uncommitted entries it had accepted during isolation."
+  },
+  {
+    "task_id": "t2",
+    "answer": "The statement is false because compression only reduces file size when the data contains redundancy or patterns that can be encoded more efficiently. If data is already random, incompressible, or has been previously compressed, applying compression may leave the size unchanged or even increase it (due to added metadata/headers). For example, encrypting a file first makes it appear random, so subsequent compression yields little to no reduction."
+  },
+  {
+    "task_id": "t3",
+    "answer": "A process is an independent program running in its own memory space. A thread is a lightweight unit of execution within a process that shares memory with other threads in the same process. Practical example: Imagine a web browser. The browser itself is a process. When you open multiple tabs, each tab could be a separate thread (or process, depending on the browser). Within one tab, things like rendering the page, running JavaScript, and loading images happen as different threads sharing the same memory. Key differences: - Processes are isolated. If one crashes, others survive. Threads share memory, so one bad thread can corrupt data for all others. - Creating a thread is cheaper and faster than creating a process. - Threads communicate easily through shared variables. Processes need explicit mechanisms like pipes, sockets, or files. Rule of thumb: use processes when you need isolation or to scale across CPUs. Use threads when you need fast communication and shared state within one task."
+  },
+  {
+    "task_id": "t4",
+    "answer": "A store offers 30% off, then an extra 15% off the discounted price. An item originally costs $240. What is the final price? Show your reasoning."
+  },
+  {
+    "task_id": "t5",
+    "answer": "600"
+  },
+  {
+    "task_id": "t6",
+    "answer": "An investment grows by 8% annually. Starting at $15,000, what is it worth after 4 years, compounded annually?"
+  },
+  {
+    "task_id": "t7",
+    "answer": "negative"
+  },
+  {
+    "task_id": "t8",
+    "answer": "positive"
+  },
+  {
+    "task_id": "t9",
+    "answer": "neutral"
+  },
+  {
+    "task_id": "t10",
+    "answer": "A regional hospital introduced an AI-assisted triage system that reduced emergency waiting times by 22 during a six-month"
+  },
+  {
+    "task_id": "t11",
+    "answer": "Scientists monitoring a remote volcano detected increased seismic activity and gas emissions over several weeks, prompting nearby villages to begin evacuation drills while authorities continuously monitor the mountain, though no eruption has occurred."
+  },
+  {
+    "task_id": "t12",
+    "answer": "- A startup developed biodegradable packaging from seaweed that decomposes within six weeks\n- Several grocery chains have begun pilot programs\n- manufacturing costs remain higher than conventional plastic."
+  },
+  {
+    "task_id": "t13",
+    "answer": "{\"entities\":[{\"text\":\"14 February 2026\",\"type\":\"DATE\"},{\"text\":\"Dr. Sofia Ramirez\",\"type\":\"PERSON\"},{\"text\":\"NVIDIA\",\"type\":\"ORG\"},{\"text\":\"ETH Zurich\",\"type\":\"ORG\"},{\"text\":\"Switzerland\",\"type\":\"LOCATION\"}]}"
+  },
+  {
+    "task_id": "t14",
+    "answer": "{\"entities\":[{\"text\":\"Satya Nadella\",\"type\":\"PERSON\"},{\"text\":\"Seattle\",\"type\":\"LOCATION\"}]}"
+  },
+  {
+    "task_id": "t15",
+    "answer": "{\"ORG\":[{\"text\":\"UNICEF\",\"type\":\"ORG\"},{\"text\":\"University of Cape Town\",\"type\":\"ORG\"}],\"LOCATION\":[{\"text\":\"South Africa\",\"type\":\"LOCATION\"}],\"DATE\":[{\"text\":\"2024\",\"type\":\"DATE\"}]}"
+  },
+  {
+    "task_id": "t16",
+    "answer": "def is_palindrome(s):\n    s = s.lower().replace(' ', '')\n    return s == s[::-1]"
+  },
+  {
+    "task_id": "t17",
+    "answer": "def min_value(nums): return min(nums)"
+  },
+  {
+    "task_id": "t18",
+    "answer": "def count_words(text): return len(text.split())"
+  },
+  {
+    "task_id": "t19",
+    "answer": "Adam, Bella, Chloe"
+  },
+  {
+    "task_id": "t20",
+    "answer": "Office 1: Mia, Office 2: Liam, Office 3: Noah, Office 4: Omar"
+  },
+  {
+    "task_id": "t21",
+    "answer": "Top to bottom: Red, Blue, Yellow, Green, Black"
+  },
+  {
+    "task_id": "t22",
+    "answer": "def remove_duplicates(dict_list):\n    seen = set()\n    result = []\n    for d in dict_list:\n        key = tuple(sorted(d.items()))\n        if key not in seen:\n            seen.add(key)\n            result.append(d)\n    return result"
+  },
+  {
+    "task_id": "t23",
+    "answer": "def kth_largest_distinct(nums, k):\n    distinct = sorted(set(nums), reverse=True)\n    return distinct[k - 1]"
+  },
+  {
+    "task_id": "t24",
+    "answer": "import re\n\ndef is_anagram(a, b):\n    clean = lambda s: sorted(re.findall(r'[a-z0-9]', s.lower()))\n    return clean(a) == clean(b)"
+  },
+  {
+    "task_id": "t25",
+    "answer": "DNS caching improves performance by storing recently resolved domain-to-IP mappings locally (on the client, OS, ISP resolver, or application), so subsequent requests for the same domain skip the recursive lookup process across multiple authoritative servers. This reduces latency, decreases DNS infrastructure load, and speeds up connection establishment. However, caching creates consistency issues because cached records can become stale when the actual DNS records change (e.g., a site moves to a new IP, a CDN reroutes traffic, or a service is migrated). Since cached entries are served until their TTL expires, users may be directed to outdated or incorrect addresses, causing failed connections, slow failover, or access to decommissioned servers. This is especially problematic during incidents, migrations, or when DNS-based load balancing is used, as changes don't propagate instantly to all caches."
+  },
+  {
+    "task_id": "t26",
+    "answer": "16"
+  },
+  {
+    "task_id": "t27",
+    "answer": "negative"
+  },
+  {
+    "task_id": "t28",
+    "answer": "Engineers completed a bridge retrofit to withstand stronger earthquakes while minimizing traffic disruptions during construction."
+  },
+  {
+    "task_id": "t29",
+    "answer": "{\"entities\":[{\"text\":\"10 January 2026\",\"type\":\"DATE\"},{\"text\":\"Prime Minister Keir Starmer\",\"type\":\"PERSON\"},{\"text\":\"President Emmanuel Macron\",\"type\":\"PERSON\"},{\"text\":\"Keir Starmer\",\"type\":\"PERSON\"},{\"text\":\"Emmanuel Macron\",\"type\":\"PERSON\"},{\"text\":\"London\",\"type\":\"LOCATION\"}]}"
+  },
+  {
+    "task_id": "t30",
+    "answer": "def average(nums): return sum(nums) / len(nums)"
+  },
+  {
+    "task_id": "t31",
+    "answer": "Apples, Oranges, Mixed, You"
+  },
+  {
+    "task_id": "t32",
+    "answer": "def merge_sorted_lists(left, right):\n    i = j = 0\n    merged = []\n    while i < len(left) and j < len(right):\n        if left[i] <= right[j]:\n            merged.append(left[i])\n            i += 1\n        else:\n            merged.append(right[j])\n            j += 1\n    merged.extend(left[i:])\n    merged.extend(right[j:])\n    return merged"
+  },
+  {
+    "task_id": "t33",
+    "answer": "HTTP is stateless because each request from a client to a server is independent; the server does not retain any memory of previous requests from the same client. The protocol was designed this way to be simple, scalable, and reliable—any request can be handled by any server without needing prior context. Web applications maintain user sessions through these mechanisms: 1. **Cookies** – The server sends a Set-Cookie header with a unique session ID. The browser stores it and includes it in subsequent requests via the Cookie header, allowing the server to recognize the client. 2. **Sessions (server-side storage)** – The session ID maps to server-side data (user info, preferences, cart contents) stored in memory, files, or databases. The server retrieves this data on each request using the ID. 3. **URL Rewriting** – The session ID is appended to URLs (e.g., `page.php?SESSID=abc123`) as a fallback when cookies are disabled. 4. **Hidden Form Fields** – The session ID is embedded in HTML forms and submitted with each request. 5. **Tokens (e.g., JWT)** – A signed token containing user claims is sent with each request (commonly in the Authorization header), allowing stateless authentication while still maintaining session-like continuity. 6. **Local Storage / Web Storage** – The client stores session data in the browser, and the server validates it on each request. These mechanisms effectively create a \"session layer\" on top of stateless HTTP, enabling persistent user experiences like logins, shopping carts, and personalized content."
+  },
+  {
+    "task_id": "t34",
+    "answer": "156"
+  },
+  {
+    "task_id": "t35",
+    "answer": "negative"
+  },
+  {
+    "task_id": "t36",
+    "answer": "Researchers developed a drone-based wildlife monitoring system capable of identifying endangered species in dense forests with minimal human intervention."
+  },
+  {
+    "task_id": "t37",
+    "answer": "{\"entities\":[{\"text\":\"3 March 2025\",\"type\":\"DATE\"},{\"text\":\"Indian Institute of Technology Delhi\",\"type\":\"ORG\"},{\"text\":\"Elon Musk\",\"type\":\"PERSON\"}]}"
+  },
+  {
+    "task_id": "t38",
+    "answer": "def factorial(n):\n    if n == 0:\n        return 1\n    return n * factorial(n - 1)"
+  },
+  {
+    "task_id": "t39",
+    "answer": "Ava first, Dana second, Chloe third, Ben fourth"
+  },
+  {
+    "task_id": "t40",
+    "answer": "def group_by_length(strings):\n    groups = {}\n    for s in strings:\n        groups.setdefault(len(s), []).append(s)\n    return groups"
+  }
+]
