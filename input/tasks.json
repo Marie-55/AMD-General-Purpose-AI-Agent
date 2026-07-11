@@ -1,162 +1,122 @@
 [
   {
     "task_id": "t1",
-    "prompt": "Explain why Raft consensus elects a leader and how it maintains consistency during network partitions."
+    "prompt": "Explain why Raft cannot safely commit log entries from a minority partition, even if that partition still has a leader."
   },
   {
     "task_id": "t2",
-    "prompt": "A colleague says 'compression always reduces file size.' Explain why this statement is false."
+    "prompt": "A teammate says: 'TCP guarantees packets arrive instantly and in the same chunks they were sent.' Explain what is wrong with that statement."
   },
   {
     "task_id": "t3",
-    "prompt": "You are mentoring a junior engineer. Explain the difference between processes and threads using a practical example."
+    "prompt": "In simple terms, explain the difference between authentication and authorization using a workplace example."
   },
   {
     "task_id": "t4",
-    "prompt": "A store offers 30% off, then an extra 15% off the discounted price. An item originally costs $240. What is the final price? Show your reasoning."
+    "prompt": "A jacket costs $160. It is discounted by 25%, then sales tax of 8% is applied to the discounted price. What is the final cost? Show brief reasoning."
   },
   {
     "task_id": "t5",
-    "prompt": "A reservoir is 3/5 full. After adding 180 liters it becomes 9/10 full. What is the reservoir's capacity?"
+    "prompt": "A tank is 2/7 full. After adding 150 liters, it is 5/7 full. What is the total capacity of the tank?"
   },
   {
     "task_id": "t6",
-    "prompt": "An investment grows by 8% annually. Starting at $15,000, what is it worth after 4 years, compounded annually?"
+    "prompt": "A runner covers 10 km at 8 km/h and then 10 km at 12 km/h. What is the average speed for the full 20 km?"
   },
   {
     "task_id": "t7",
-    "prompt": "Determine the overall sentiment and briefly justify it: \"The laptop is incredibly fast, but the fan noise becomes unbearable under even moderate workloads.\""
+    "prompt": "Determine the sentiment and briefly justify it: \"The setup was painless, the interface is clean, and I finally stopped dreading this weekly task.\""
   },
   {
     "task_id": "t8",
-    "prompt": "Classify the sentiment: \"I expected a disaster after reading the reviews, yet the experience exceeded every expectation.\""
+    "prompt": "Classify the sentiment: \"I wanted to like it, but every update somehow makes the product less reliable.\""
   },
   {
     "task_id": "t9",
-    "prompt": "Label the sentiment: \"Support eventually fixed my issue after six transfers and four days of waiting.\""
+    "prompt": "Label the sentiment: \"The hotel called it a 'garden view'; technically there was a plant next to the dumpster.\""
   },
   {
     "task_id": "t10",
-    "prompt": "Summarize the following in exactly 18 words:\n\nA regional hospital introduced an AI-assisted triage system that reduced emergency waiting times by 22% during a six-month pilot. Doctors emphasized that the software only prioritizes patients and never replaces medical judgment. Administrators plan to expand the system to three additional hospitals next year after independent auditors confirmed consistent performance improvements."
+    "prompt": "Summarize the following in exactly 16 words:\n\nA university research team built a low-cost sensor network that detects early signs of water contamination in rural wells. The system sends alerts by SMS so local health workers can respond before outbreaks spread."
   },
   {
     "task_id": "t11",
-    "prompt": "Write a single-sentence summary:\n\nScientists monitoring a remote volcano detected increased seismic activity and gas emissions over several weeks. Although no eruption has occurred, nearby villages have begun evacuation drills while authorities continuously monitor the mountain."
+    "prompt": "Write a single-sentence summary:\n\nCity officials approved a nighttime delivery program that lets electric cargo bikes use designated curb zones after 9 p.m. Supporters say it will reduce daytime congestion, while residents have asked for strict noise limits."
   },
   {
     "task_id": "t12",
-    "prompt": "Summarize this passage as exactly three bullet points:\n\nA startup developed biodegradable packaging from seaweed that decomposes within six weeks. Several grocery chains have begun pilot programs, although manufacturing costs remain higher than conventional plastic."
+    "prompt": "Summarize this passage as exactly three bullet points:\n\nA nonprofit launched free weekend coding classes for high school students in underserved neighborhoods. The first cohort filled all available seats within two days. Organizers are seeking additional mentors before expanding to two more cities."
   },
   {
     "task_id": "t13",
-    "prompt": "Extract every PERSON, ORGANIZATION, LOCATION and DATE as JSON: On 14 February 2026, Dr. Sofia Ramirez presented NVIDIA's latest robotics research at ETH Zurich in Switzerland."
+    "prompt": "Extract every PERSON, ORG, LOCATION, and DATE as JSON: On 7 April 2026, Professor Lina Okafor joined UNESCO officials at the University of Nairobi in Kenya."
   },
   {
     "task_id": "t14",
-    "prompt": "Identify and label every named entity: During Microsoft Build 2025, Satya Nadella announced new Azure AI services in Seattle."
+    "prompt": "Identify and label every named entity: During Google I/O 2025, Sundar Pichai introduced Gemini features for Android developers in Mountain View."
   },
   {
     "task_id": "t15",
-    "prompt": "Return entities grouped by type: UNICEF partnered with the University of Cape Town in South Africa throughout 2024."
+    "prompt": "Return entities grouped by type as JSON: The World Health Organization opened a regional training center in Amman, Jordan in November 2024."
   },
   {
     "task_id": "t16",
-    "prompt": "The following Python function should determine whether a string is a palindrome. Find the bug and provide a corrected implementation.\n\n```python\ndef is_palindrome(s):\n    s=s.lower().replace(\" \",\"\")\n    return s==s.reverse()\n```"
+    "prompt": "The following Python function should return the largest number in a list. Find the bug and provide a corrected implementation.\n\n```python\ndef max_value(nums):\n    largest = 0\n    for n in nums:\n        if n > largest:\n            largest = n\n    return largest\n```"
   },
   {
     "task_id": "t17",
-    "prompt": "Debug the code and explain the bug briefly.\n\n```python\ndef min_value(nums):\n    m=0\n    for x in nums:\n        if x<m:\n            m=x\n    return m\n```"
+    "prompt": "Debug the code and explain the bug briefly.\n\n```python\ndef remove_vowels(text):\n    vowels = \"aeiou\"\n    result = []\n    for ch in text:\n        if ch.lower() in vowels:\n            result.append(ch)\n    return \"\".join(result)\n```"
   },
   {
     "task_id": "t18",
-    "prompt": "Find and fix the bug.\n\n```python\ndef count_words(text):\n    return len(text.split(\"\"))\n```"
+    "prompt": "Find and fix the bug.\n\n```python\ndef second_smallest(nums):\n    nums = sorted(set(nums))\n    return nums[1]\n```"
   },
   {
     "task_id": "t19",
-    "prompt": "Three friends\u2014Adam, Bella and Chloe\u2014each own exactly one of a cat, dog and rabbit. Adam does not own the dog. Bella owns neither the cat nor the rabbit. Who owns each pet?"
+    "prompt": "Three people—Nora, Omar, and Priya—each drink exactly one of tea, coffee, and juice. Nora does not drink coffee. Omar drinks neither tea nor juice. Who drinks each beverage?"
   },
   {
     "task_id": "t20",
-    "prompt": "Four employees occupy offices 1\u20134. Mia is somewhere left of Omar. Liam is immediately right of Mia. Noah is not in office 4. Determine the arrangement."
+    "prompt": "Four folders are arranged from left to right. The red folder is immediately left of the blue folder. The green folder is somewhere right of the blue folder. The yellow folder is not at either end. Determine the ordering."
   },
   {
     "task_id": "t21",
-    "prompt": "Five books are stacked vertically. The red book is above the blue book. The green book is below the yellow book. The blue book is immediately above the black book. Determine one valid ordering."
+    "prompt": "Five runners finish first through fifth. Ben finishes immediately after Ava. Dana finishes before Eli. Chloe is not first or last. Give one valid finishing order."
   },
   {
     "task_id": "t22",
-    "prompt": "Write a Python function that removes duplicate dictionaries from a list while preserving their original order."
+    "prompt": "Write a Python function that flattens a nested list of integers of arbitrary depth."
   },
   {
     "task_id": "t23",
-    "prompt": "Implement a Python function that returns the kth largest distinct element of a list."
+    "prompt": "Implement a Python function that returns the first non-repeating character in a string, or None if every character repeats."
   },
   {
     "task_id": "t24",
-    "prompt": "Write a Python function that checks whether two strings are anagrams while ignoring punctuation and capitalization."
+    "prompt": "Write a Python function that rotates a list to the right by k positions without modifying the original list."
   },
   {
     "task_id": "t25",
-    "prompt": "Explain why DNS caching improves performance but can also create consistency issues."
+    "prompt": "Explain why database indexes can speed up reads but slow down writes."
   },
   {
     "task_id": "t26",
-    "prompt": "A cyclist rides 24 km uphill at 12 km/h and returns downhill at 24 km/h. What is the average speed?"
+    "prompt": "A company had 800 customers. It lost 15% of them, then gained 20% of the remaining customers. How many customers does it have now?"
   },
   {
     "task_id": "t27",
-    "prompt": "Determine the sentiment: \"Nothing was technically broken, but using the application felt unnecessarily frustrating.\""
+    "prompt": "Determine the sentiment: \"The battery life is amazing, which is fortunate because the charger stopped working on day two.\""
   },
   {
     "task_id": "t28",
-    "prompt": "Summarize in no more than 25 words:\n\nEngineers completed a bridge retrofit designed to withstand stronger earthquakes while minimizing traffic disruptions during construction."
+    "prompt": "Summarize in no more than 22 words:\n\nEngineers installed smart traffic signals that adapt to real-time congestion and give priority to emergency vehicles during peak commuting hours."
   },
   {
     "task_id": "t29",
-    "prompt": "Extract named entities as JSON: Prime Minister Keir Starmer met President Emmanuel Macron in London on 10 January 2026."
+    "prompt": "Extract named entities as JSON: President Claudia Sheinbaum met Apple CEO Tim Cook in Mexico City on 12 June 2026."
   },
   {
     "task_id": "t30",
-    "prompt": "Fix the bug.\n\n```python\ndef average(nums):\n    return sum(nums)/len\n```"
-  },
-  {
-    "task_id": "t31",
-    "prompt": "Three boxes are labeled Apples, Oranges and Mixed. Every label is wrong. You may inspect one fruit from one box without looking inside. Which box do you choose first and why?"
-  },
-  {
-    "task_id": "t32",
-    "prompt": "Write a Python function to merge two sorted lists without using Python's built-in sort."
-  },
-  {
-    "task_id": "t33",
-    "prompt": "Explain why HTTP is stateless and how web applications maintain user sessions."
-  },
-  {
-    "task_id": "t34",
-    "prompt": "A company ships 480 packages. On Monday it ships 35%, on Tuesday half of the remaining packages. How many remain?"
-  },
-  {
-    "task_id": "t35",
-    "prompt": "Classify the sentiment: \"The food was unforgettable\u2014for all the wrong reasons.\""
-  },
-  {
-    "task_id": "t36",
-    "prompt": "Summarize in exactly one sentence:\n\nResearchers developed a drone-based wildlife monitoring system capable of identifying endangered species in dense forests with minimal human intervention."
-  },
-  {
-    "task_id": "t37",
-    "prompt": "Identify PERSON, ORG, LOCATION and DATE: Elon Musk visited the Indian Institute of Technology Delhi on 3 March 2025."
-  },
-  {
-    "task_id": "t38",
-    "prompt": "Debug:\n\n```python\ndef factorial(n):\n    if n==0:\n        return 0\n    return n*factorial(n-1)\n```"
-  },
-  {
-    "task_id": "t39",
-    "prompt": "Four runners finish first through fourth. Ava finishes before Ben. Dana is not last. Ben finishes immediately after Chloe. Determine the finishing order."
-  },
-  {
-    "task_id": "t40",
-    "prompt": "Implement a Python function that groups strings by length and returns a dictionary keyed by length."
+    "prompt": "Fix the bug.\n\n```python\ndef count_even(nums):\n    count = 0\n    for n in nums:\n        if n % 2 == 0:\n            count + 1\n    return count\n```"
   }
 ]
