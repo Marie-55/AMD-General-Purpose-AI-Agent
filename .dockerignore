@@ -1,0 +1,9 @@
+tests/
+input/
+output/
+README.md
+.git
+.gitignore
+__pycache__/
+*.pyc
+.env

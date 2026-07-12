@@ -1,0 +1,10 @@
+[
+  {"task_id": "t1", "prompt": "What causes rainbows to form after rain?"},
+  {"task_id": "t2", "prompt": "A store had 240 items. It sold 25% of them on Monday and 30 more on Tuesday. How many items remain?"},
+  {"task_id": "t3", "prompt": "Classify the sentiment of this review: 'The screen is gorgeous and fast, but the battery life is disappointing.'"},
+  {"task_id": "t4", "prompt": "Summarize the following text in exactly one sentence: 'The city council approved a new budget for public transportation, adding 12 new electric buses and extending two subway lines by 2027. Officials say the plan will reduce commute times and cut emissions.'"},
+  {"task_id": "t5", "prompt": "Extract all named entities from this text, using PERSON, ORGANIZATION, and DATE as the types: 'Marie Curie founded the Radium Institute in 1914.'"},
+  {"task_id": "t6", "prompt": "This code has a bug:\n```python\ndef average(nums):\n    return sum(nums) / len(nums)\n\nprint(average([]))\n```\nFind and fix it."},
+  {"task_id": "t7", "prompt": "Three friends -- Ana, Ben, and Cleo -- each own a different pet: a cat, a dog, and a fish. Ana does not own the dog. Ben owns the fish. Who owns each pet?"},
+  {"task_id": "t8", "prompt": "Write a Python function that returns the nth Fibonacci number."}
+]
