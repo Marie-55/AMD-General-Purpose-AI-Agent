@@ -22,13 +22,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY . .
 
-# Require at minimum one generalist and one coder model.
-# The config.py _pick() function will choose the best available file at runtime.
-RUN { test -f models/smollm2-1.7b-instruct-q4_k_m.gguf || \
-      test -f models/phi-4-mini-instruct-q4_k_m.gguf; } || \
-    { echo "Error: no generalist model found under models/."; exit 1; }
-RUN { test -f models/qwen2.5-1.5b-instruct-q4_k_m.gguf || \
-      test -f models/qwen2.5-coder-3b-instruct-q4_k_m.gguf; } || \
-    { echo "Error: no coder model found under models/."; exit 1; }
+# Fail the build early (not at runtime) if the model weights weren't
+# downloaded via setup_local_models.py before `docker build`. Matches
+# config.py's MODEL_PATHS exactly -- no fallback models are bundled.
+RUN test -f models/qwen2.5-3b-instruct-q4_k_m.gguf && \
+    test -f models/qwen2.5-coder-3b-instruct-q4_k_m.gguf || \
+    { echo "Error: model files missing under models/. Run 'python setup_local_models.py' first."; exit 1; }
 
 ENTRYPOINT ["python", "main.py"]

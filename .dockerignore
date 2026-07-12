@@ -7,3 +7,9 @@ README.md
 __pycache__/
 *.pyc
 .env
+
+# Fallback models are no longer used (config.py has no fallback path) --
+# excluded here rather than deleted from disk, so they aren't lost if you
+# want them back without re-downloading.
+models/smollm2-1.7b-instruct-q4_k_m.gguf
+models/qwen2.5-1.5b-instruct-q4_k_m.gguf

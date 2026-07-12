@@ -25,47 +25,27 @@ PER_TASK_SOFT_LIMIT_S = 28
 CODE_EXEC_TIMEOUT_S = 8.0
 
 # ---------------------------------------------------------------------------
-# Local model files.
+# Local model files -- one per role, no fallback. A real run showed the
+# smaller generic models producing broken output when used as a fallback
+# (a 1.5B "coder" fallback once "fixed" a bug by introducing a TypeError,
+# and once returned the original buggy code unchanged), so there is no
+# quality upside to bundling a weaker backup -- it only costs image size.
 #
-# GENERALIST  : qwen2.5-3b-instruct -- handles factual / sentiment /
-#               summarization / ner / logic. Falls back to smollm2-1.7b if
-#               the 3B file is absent.
-#
-# CODER       : qwen2.5-coder-3b-instruct -- the code-specialized model,
-#               used for math-via-code, code_debugging, and code_generation.
-#               Falls back to the generic qwen2.5-1.5b only if the coder
-#               file is missing. The coder model must be primary here: a
-#               real run showed the generic 1.5B model producing broken
-#               fixes in code_debugging (e.g. "fixing" a bug by introducing
-#               `largest = None` compared with `>`, which raises TypeError,
-#               and once returning the original buggy code unchanged) --
-#               there is enough time budget headroom (~37% used in a 30-task
-#               run) to afford the larger, more accurate coder model.
+# GENERALIST : qwen2.5-3b-instruct       -- factual / sentiment /
+#              summarization / ner / logic_puzzle
+# CODER      : qwen2.5-coder-3b-instruct -- math-via-code / code_debugging /
+#              code_generation
 #
 # Only one model is ever resident at runtime (4 GB RAM constraint).
 # ---------------------------------------------------------------------------
 MODELS_DIR = Path(__file__).resolve().parent / "models"
 
-def _pick(primary: str, fallback: str, env_key: str) -> str:
-    """Return env override > primary (if file exists) > fallback."""
-    override = os.environ.get(env_key)
-    if override:
-        return override
-    primary_path = MODELS_DIR / primary
-    if primary_path.exists() and primary_path.stat().st_size > 100_000_000:
-        return str(primary_path)
-    return str(MODELS_DIR / fallback)
-
 MODEL_PATHS = {
-    "generalist": _pick(
-        primary="qwen2.5-3b-instruct-q4_k_m.gguf",
-        fallback="smollm2-1.7b-instruct-q4_k_m.gguf",
-        env_key="GENERALIST_MODEL_PATH",
+    "generalist": os.environ.get(
+        "GENERALIST_MODEL_PATH", str(MODELS_DIR / "qwen2.5-3b-instruct-q4_k_m.gguf")
     ),
-    "coder": _pick(
-        primary="qwen2.5-coder-3b-instruct-q4_k_m.gguf",
-        fallback="qwen2.5-1.5b-instruct-q4_k_m.gguf",
-        env_key="CODER_MODEL_PATH",
+    "coder": os.environ.get(
+        "CODER_MODEL_PATH", str(MODELS_DIR / "qwen2.5-coder-3b-instruct-q4_k_m.gguf")
     ),
 }
 
