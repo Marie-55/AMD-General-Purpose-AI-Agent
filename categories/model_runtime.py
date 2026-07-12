@@ -14,6 +14,10 @@ class ModelRuntime:
         self._llm = None
         self._current_key = None
 
+    @property
+    def current_key(self):
+        return self._current_key
+
     def load(self, key: str) -> None:
         if self._current_key == key:
             return

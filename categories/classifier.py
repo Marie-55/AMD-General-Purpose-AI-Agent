@@ -1,7 +1,18 @@
-"""Regex-based task classifier: maps a prompt to one of the 8 competition
-categories. Pure pattern matching, no model call -- classification has to
-run before we know which local model to load, so it can't depend on one
-being loaded yet.
+"""Hybrid task classifier: maps a prompt to one of the 8 competition
+categories using regex first, falling back to the generalist model when
+the regex signal is weak or absent.
+
+A real run showed the pure-regex classifier silently defaulting to
+factual_knowledge for phrasings its patterns didn't anticipate -- e.g.
+"Return entities grouped by type as JSON" (an NER task with no "extract"
+or "named entit[y]" keyword) and "Give one valid finishing order" (a logic
+puzzle with no "determine the order" phrasing). Both got routed through
+handle_factual instead of their real handler: the NER task came back as a
+malformed JSON object instead of an entity array (no grammar constraint
+was ever applied), and the logic task came back as an unverified one-liner
+that turned out to violate one of the puzzle's own clues. Regex alone
+can't be extended to cover every phrasing, so ambiguous cases are now
+resolved by asking the already-loaded generalist model directly.
 """
 import re
 
@@ -108,7 +119,12 @@ PRIORITY = [
 ]
 
 
-def classify(prompt: str) -> str:
+def classify_regex(prompt: str) -> tuple[str, int]:
+    """Score every category against *prompt* and return (best_category,
+    best_score). score == 0 means no pattern matched anything -- the
+    "factual_knowledge" returned in that case is just PRIORITY's fallback
+    ordering, not a real signal, and should not be trusted as one.
+    """
     text = (prompt or "").lower()
     scores = {cat: 0 for cat in ALL_CATEGORIES}
     for cat, patterns in PATTERNS.items():
@@ -120,4 +136,48 @@ def classify(prompt: str) -> str:
     for cat in PRIORITY:
         if scores[cat] > best_score:
             best_cat, best_score = cat, scores[cat]
-    return best_cat
+    return best_cat, best_score
+
+
+def _classify_with_model(prompt: str, runtime) -> str | None:
+    from categories import prompts
+    import config
+
+    messages = [
+        {"role": "system", "content": prompts.CLASSIFY_SYSTEM},
+        {"role": "user", "content": prompt},
+    ]
+    raw = runtime.generate(messages, max_tokens=config.CLASSIFY_MAX_TOKENS, temperature=0.0)
+    if not raw:
+        return None
+    text = raw.lower()
+    # Word-boundary match, not a plain substring check: "ner" is a literal
+    # substring of "generation" (ge-NER-ation), so a naive `cat in text`
+    # matched "ner" inside a correct "code_generation" answer every time --
+    # caught in a real run where two clear code_generation prompts were
+    # silently routed to the NER handler instead.
+    for cat in ALL_CATEGORIES:
+        if re.search(rf"\b{re.escape(cat)}\b", text):
+            return cat
+    return None
+
+
+def classify(prompt: str, runtime=None) -> str:
+    """Regex first; the model only gets a turn when regex's own signal is
+    weak (score <= 1) -- a single incidental keyword hit isn't more
+    trustworthy than a full-context read from the model, but a strong
+    multi-pattern regex match (score >= 2) is specific enough to trust
+    outright and skip the extra generation call.
+
+    *runtime* is optional so this stays usable in tests / anywhere a model
+    isn't loaded -- classify(prompt) alone still works exactly as before.
+    """
+    regex_cat, regex_score = classify_regex(prompt)
+
+    if runtime is None or regex_score >= 2:
+        return regex_cat
+
+    model_cat = _classify_with_model(prompt, runtime)
+    if model_cat is None:
+        return regex_cat
+    return model_cat

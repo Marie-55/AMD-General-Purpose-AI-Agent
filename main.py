@@ -186,7 +186,24 @@ def main() -> None:
     tasks = load_tasks()
     print(f"Loaded {len(tasks)} tasks", flush=True)
 
-    categorized = [(task, classify(task["prompt"])) for task in tasks]
+    answers = {}
+    task_metrics_list = []
+    runtime = ModelRuntime()
+
+    # Classification needs the generalist model for its own weak-signal
+    # fallback (see categories/classifier.py), so the generalist loads
+    # first regardless of bucket processing order -- this costs nothing
+    # extra since the generalist bucket needs that same load anyway.
+    print("Loading generalist model for classification...", flush=True)
+    try:
+        runtime.load("generalist")
+    except Exception as exc:
+        print(f"[main] WARNING: could not load generalist model for classification: {exc}", flush=True)
+        print("[main] falling back to regex-only classification", flush=True)
+        runtime.unload()
+
+    classify_runtime = runtime if runtime.current_key == "generalist" else None
+    categorized = [(task, classify(task["prompt"], classify_runtime)) for task in tasks]
     for task, category in categorized:
         print(f"  {task['task_id']}: {category}", flush=True)
 
@@ -194,13 +211,9 @@ def main() -> None:
     for task, category in categorized:
         buckets[config.CATEGORY_MODEL[category]].append((task, category))
 
-    answers = {}
-    task_metrics_list = []
-    runtime = ModelRuntime()
-
-    # Process the coder bucket first, then the generalist bucket -- each
-    # model is loaded exactly once (or not at all if its bucket is empty).
-    for model_key in ("coder", "generalist"):
+    # Generalist first (already loaded above), then coder -- each model is
+    # loaded at most once per run (or not at all if its bucket is empty).
+    for model_key in ("generalist", "coder"):
         group = buckets[model_key]
         if not group:
             continue

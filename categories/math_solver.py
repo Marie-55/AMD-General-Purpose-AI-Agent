@@ -14,6 +14,21 @@ from categories import prompts
 from categories.code_exec import extract_code, run_code_safely
 
 
+def _looks_incomplete(text: str) -> bool:
+    """A truncated NL derivation (cut off before reaching a final number or
+    an 'Answer:' line) must never be trusted as a cross-check *or* returned
+    directly -- a real run showed exactly this: cut off at "...Average
+    speed = 20 km" with no final value, which would have silently been
+    accepted as correct with '20' extracted as the answer.
+    """
+    text = (text or "").strip()
+    if not text:
+        return True
+    if "answer:" in text.lower():
+        return False
+    return text[-1] not in ".!?"
+
+
 def _extract_number(text: str):
     if not text:
         return None
@@ -60,7 +75,8 @@ def solve(prompt: str, runtime) -> str:
         {"role": "user", "content": prompt},
     ]
     nl_answer = runtime.generate(nl_messages, max_tokens=config.MATH_NL_MAX_TOKENS, temperature=0.3)
-    nl_value = _extract_number(nl_answer)
+    nl_incomplete = _looks_incomplete(nl_answer)
+    nl_value = None if nl_incomplete else _extract_number(nl_answer)
 
     if code_value is not None and nl_value is not None:
         if abs(code_value - nl_value) < 1e-6:
@@ -73,6 +89,6 @@ def solve(prompt: str, runtime) -> str:
 
     if code_answer is not None:
         return code_answer
-    if nl_answer and nl_answer.strip():
+    if nl_answer and nl_answer.strip() and not nl_incomplete:
         return nl_answer
     return config.FALLBACK_ANSWER

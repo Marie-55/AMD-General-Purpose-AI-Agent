@@ -27,13 +27,20 @@ CODE_EXEC_TIMEOUT_S = 8.0
 # ---------------------------------------------------------------------------
 # Local model files.
 #
-# GENERALIST  : smollm2-1.7b  -- fast, fits in RAM alongside Python overhead,
-#               handles factual / sentiment / summarization / ner / logic.
-#               Falls back to phi-4-mini if the smollm2 file is absent.
+# GENERALIST  : qwen2.5-3b-instruct -- handles factual / sentiment /
+#               summarization / ner / logic. Falls back to smollm2-1.7b if
+#               the 3B file is absent.
 #
-# CODER       : qwen2.5-1.5b-instruct  -- faster than the 3B on CPU,
-#               still strong enough for math-via-code and code tasks.
-#               Falls back to qwen2.5-3b if the 1.5b file is absent.
+# CODER       : qwen2.5-coder-3b-instruct -- the code-specialized model,
+#               used for math-via-code, code_debugging, and code_generation.
+#               Falls back to the generic qwen2.5-1.5b only if the coder
+#               file is missing. The coder model must be primary here: a
+#               real run showed the generic 1.5B model producing broken
+#               fixes in code_debugging (e.g. "fixing" a bug by introducing
+#               `largest = None` compared with `>`, which raises TypeError,
+#               and once returning the original buggy code unchanged) --
+#               there is enough time budget headroom (~37% used in a 30-task
+#               run) to afford the larger, more accurate coder model.
 #
 # Only one model is ever resident at runtime (4 GB RAM constraint).
 # ---------------------------------------------------------------------------
@@ -50,16 +57,14 @@ def _pick(primary: str, fallback: str, env_key: str) -> str:
     return str(MODELS_DIR / fallback)
 
 MODEL_PATHS = {
-    # smollm2-1.7b is your fastest available generalist model
     "generalist": _pick(
-        primary="qwen2.5-3b-instruct-q4_k_m.gguf", #qwen2.5-3b-instruct-q4_k_m
+        primary="qwen2.5-3b-instruct-q4_k_m.gguf",
         fallback="smollm2-1.7b-instruct-q4_k_m.gguf",
         env_key="GENERALIST_MODEL_PATH",
     ),
-    # qwen2.5-1.5b is faster than 3b; use 3b as fallback
     "coder": _pick(
-        primary="qwen2.5-1.5b-instruct-q4_k_m.gguf", #qwen2.5-coder-3b-instruct-q4_k_m.gguf
-        fallback="qwen2.5-coder-3b-instruct-q4_k_m.gguf",
+        primary="qwen2.5-coder-3b-instruct-q4_k_m.gguf",
+        fallback="qwen2.5-1.5b-instruct-q4_k_m.gguf",
         env_key="CODER_MODEL_PATH",
     ),
 }
@@ -84,17 +89,25 @@ CATEGORY_MODEL = {
 
 # ---------------------------------------------------------------------------
 # Per-category max_tokens -- kept tight because CPU generation speed is the
-# real constraint against the 30 s/request cap.
+# real constraint against the 30 s/request cap. FACTUAL and MATH_NL were
+# raised after a real run showed both truncating mid-answer: t1 (factual)
+# cut off mid-sentence at 300 tokens on a multi-part "explain why" question,
+# and t6 (math NL fallback) cut off at 250 tokens *before ever reaching a
+# final number or an "Answer:" line* -- a guaranteed miss, not just untidy.
 # ---------------------------------------------------------------------------
-FACTUAL_MAX_TOKENS           = 300
+FACTUAL_MAX_TOKENS           = 450
 SENTIMENT_MAX_TOKENS         = 120
 SUMMARIZATION_MAX_TOKENS     = 300
 SUMMARIZATION_RETRY_MAX_TOKENS = 450
 NER_MAX_TOKENS               = 500
 LOGIC_MAX_TOKENS             = 500
 MATH_CODE_MAX_TOKENS         = 300
-MATH_NL_MAX_TOKENS           = 250
+MATH_NL_MAX_TOKENS           = 450
 CODE_DEBUG_MAX_TOKENS        = 500
 CODE_GEN_MAX_TOKENS          = 600
+
+# Model-assisted classification (see categories/classifier.py): only used
+# when the regex pass finds a weak/no signal, so this stays tiny.
+CLASSIFY_MAX_TOKENS          = 20
 
 FALLBACK_ANSWER = "Unable to determine a reliable answer for this task."

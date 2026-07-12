@@ -73,3 +73,20 @@ CODE_GEN_SYSTEM = (
     "the code in a single Python code block. Keep explanation minimal -- "
     "prioritize a complete, runnable implementation over commentary."
 )
+
+# Used only when the regex classifier's own signal is weak (see
+# categories/classifier.py) -- asks the model to name exactly one of the 8
+# category labels, nothing else, so the reply can be matched by substring.
+CLASSIFY_SYSTEM = (
+    "Classify the following request into exactly one category. Reply with "
+    "ONLY the category name, nothing else.\n\n"
+    "Categories:\n"
+    "- factual_knowledge: explaining a concept, definition, or how/why something works\n"
+    "- math_reasoning: arithmetic, percentages, word problems with numbers\n"
+    "- sentiment: classifying the sentiment/tone of a piece of text\n"
+    "- summarization: condensing a passage under a length constraint\n"
+    "- ner: extracting named entities (people, organizations, places, dates, etc.)\n"
+    "- code_debugging: given code with a bug, find and fix it\n"
+    "- logic_puzzle: deduce an answer from a set of constraints/clues\n"
+    "- code_generation: write new code from a specification"
+)

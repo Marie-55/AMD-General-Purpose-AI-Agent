@@ -1,36 +1,56 @@
-"""Developer-only script to download the two local GGUF models this agent
-uses. Run this once before `docker build` -- the Dockerfile expects the
-files to already exist under models/.
+"""Developer-only script to download the local GGUF models this agent uses.
+Run this once before `docker build` -- the Dockerfile expects the files to
+already exist under models/.
 
     pip install huggingface_hub
     python setup_local_models.py
 
-Downloads (~4.4 GB total):
-    generalist : Phi-4-mini-instruct       (3.8B, Q4_K_M, ~2.5 GB)
+Downloads (~5.9 GB total):
+    generalist : Qwen2.5-3B-Instruct        (3B, Q4_K_M, ~1.9 GB) -- primary
+                 SmolLM2-1.7B-Instruct      (1.7B, Q4_K_M, ~1.1 GB) -- fallback
                  factual / sentiment / summarization / ner / logic_puzzle
-    coder      : Qwen2.5-Coder-3B-Instruct (3B,   Q4_K_M, ~1.9 GB)
+    coder      : Qwen2.5-Coder-3B-Instruct  (3B, Q4_K_M, ~1.9 GB) -- primary
+                 Qwen2.5-1.5B-Instruct      (1.5B, Q4_K_M, ~1.0 GB) -- fallback
                  math_reasoning / code_debugging / code_generation
 
-Only one of the two is ever loaded into RAM at runtime (see
-categories/model_runtime.py) -- both are bundled in the image so main.py
-can pick whichever a given task needs.
+An earlier version of this script tried to download Phi-4-mini-instruct
+from a repo_id that doesn't exist (bartowski/Phi-4-mini-instruct-GGUF --
+the actual repo is bartowski/microsoft_Phi-4-mini-instruct-GGUF), which
+silently failed and left main.py crashing on a missing file. config.py's
+_pick() now always falls back to a model that's actually downloaded here,
+so a partial/failed download degrades gracefully instead of crashing.
+
+Only one model is ever loaded into RAM at runtime (see
+categories/model_runtime.py) -- all four are bundled so config.py's _pick()
+can choose whichever is available and best-suited for a given task.
 """
 import sys
 from pathlib import Path
 
 MODELS = [
     {
-        "label": "Phi-4-mini-instruct Q4_K_M (generalist)",
-        # bartowski renames the file with a lowercase 'phi' prefix
-        "repo_id": "bartowski/Phi-4-mini-instruct-GGUF",
-        "filename": "Phi-4-mini-instruct-Q4_K_M.gguf",
-        "local_name": "phi-4-mini-instruct-q4_k_m.gguf",
+        "label": "Qwen2.5-3B-Instruct Q4_K_M (generalist, primary)",
+        "repo_id": "bartowski/Qwen2.5-3B-Instruct-GGUF",
+        "filename": "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+        "local_name": "qwen2.5-3b-instruct-q4_k_m.gguf",
     },
     {
-        "label": "Qwen2.5-Coder-3B-Instruct Q4_K_M (coder)",
+        "label": "SmolLM2-1.7B-Instruct Q4_K_M (generalist, fallback)",
+        "repo_id": "bartowski/SmolLM2-1.7B-Instruct-GGUF",
+        "filename": "SmolLM2-1.7B-Instruct-Q4_K_M.gguf",
+        "local_name": "smollm2-1.7b-instruct-q4_k_m.gguf",
+    },
+    {
+        "label": "Qwen2.5-Coder-3B-Instruct Q4_K_M (coder, primary)",
         "repo_id": "bartowski/Qwen2.5-Coder-3B-Instruct-GGUF",
         "filename": "Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf",
         "local_name": "qwen2.5-coder-3b-instruct-q4_k_m.gguf",
+    },
+    {
+        "label": "Qwen2.5-1.5B-Instruct Q4_K_M (coder, fallback)",
+        "repo_id": "bartowski/Qwen2.5-1.5B-Instruct-GGUF",
+        "filename": "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
+        "local_name": "qwen2.5-1.5b-instruct-q4_k_m.gguf",
     },
 ]
 
