@@ -1,0 +1,34 @@
+[
+  {
+    "task_id": "t1",
+    "answer": "Rainbows are formed after rain due to a combination of light refraction, reflection, and dispersion. When sunlight passes through water droplets in the air, it is refracted, or bent, and split into its individual colors. This is because water droplets act as tiny prisms, separating the light into its various wavelengths.\n\nThe sunlight enters the water droplet and hits the surface at a shallow angle. As it passes through the droplet, it is refracted, or bent, and then reflected off the back of the droplet before exiting. This process creates a spectrum of colors that we see as a rainbow.\n\nThe colors of the rainbow are a result of the different wavelengths of light being refracted at slightly different angles, causing them to appear at different distances from the observer. The colors typically seen in a rainbow include red, orange, yellow, green, blue, indigo, and violet.\n\nRainbows are most commonly seen in the morning or evening when the sun is low in the sky, and the light passes through the water droplets at a shallow angle. They are less commonly seen during the midday when the sun is higher in the sky, and the light passes through the droplets at a steeper angle."
+  },
+  {
+    "task_id": "t2",
+    "answer": "150.0\n\nAnswer: 150"
+  },
+  {
+    "task_id": "t3",
+    "answer": "Neutral, one-sentence justification: The reviewer acknowledges both the good (gorgeous screen and fast performance) and the bad (disappointing battery life) aspects of the product."
+  },
+  {
+    "task_id": "t4",
+    "answer": "The city council approved a new budget for public transportation, adding 12 new electric buses and extending two subway lines by 2027 to reduce commute times and cut emissions."
+  },
+  {
+    "task_id": "t5",
+    "answer": "[\n  {\n    \"text\": \"Marie Curie\",\n    \"type\": \"PERSON\"\n  },\n  {\n    \"text\": \"1914\",\n    \"type\": \"DATE\"\n  }\n]"
+  },
+  {
+    "task_id": "t6",
+    "answer": "The bug in the provided code is that the `len(nums)` function call is returning 0 when `nums` is an empty list, which causes a `ZeroDivisionError` when the average is calculated. To fix this, you should check if the list is empty before performing the division. Here's the corrected code:\n\n```python\ndef average(nums):\n    if not nums:  # Check if the list is empty\n        return 0\n    return sum(nums) / len(nums)\n\nprint(average([]))  # Should print 0\n```"
+  },
+  {
+    "task_id": "t7",
+    "answer": "Ana does not own the dog. Ben owns the fish.\n\nAnswer: Ana, Ben, and Cleo"
+  },
+  {
+    "task_id": "t8",
+    "answer": "```python\ndef fibonacci(n):\n    \"\"\"\n    Returns the nth Fibonacci number.\n    \n    Args:\n    n (int): The position in the Fibonacci sequence.\n    \n    Returns:\n    int: The nth Fibonacci number.\n    \"\"\"\n    if n <= 0:\n        return 0\n    elif n == 1:\n        return 1\n    else:\n        a, b = 0, 1\n        for _ in range(2, n + 1):\n            a, b = b, a + b\n        return b\n```"
+  }
+]
