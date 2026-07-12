@@ -27,13 +27,11 @@ CODE_EXEC_TIMEOUT_S = 8.0
 # ---------------------------------------------------------------------------
 # Local model files.
 #
-# GENERALIST  : smollm2-1.7b  -- fast, fits in RAM alongside Python overhead,
-#               handles factual / sentiment / summarization / ner / logic.
-#               Falls back to phi-4-mini if the smollm2 file is absent.
+#  GENERALIST : Qwen2.5-3B-Instruct Q4_K_M
+#               factual / sentiment / summarization / ner / logic
 #
-# CODER       : qwen2.5-1.5b-instruct  -- faster than the 3B on CPU,
-#               still strong enough for math-via-code and code tasks.
-#               Falls back to qwen2.5-3b if the 1.5b file is absent.
+#   CODER      : Qwen2.5-Coder-3B-Instruct Q4_K_M
+#                math / debugging / code generation
 #
 # Only one model is ever resident at runtime (4 GB RAM constraint).
 # ---------------------------------------------------------------------------
@@ -50,15 +48,13 @@ def _pick(primary: str, fallback: str, env_key: str) -> str:
     return str(MODELS_DIR / fallback)
 
 MODEL_PATHS = {
-    # smollm2-1.7b is your fastest available generalist model
     "generalist": _pick(
-        primary="qwen2.5-3b-instruct-q4_k_m.gguf", #qwen2.5-3b-instruct-q4_k_m
-        fallback="smollm2-1.7b-instruct-q4_k_m.gguf",
+        primary="qwen2.5-3b-instruct-q4_k_m.gguf",
+        fallback="qwen2.5-3b-instruct-q4_k_m.gguf",
         env_key="GENERALIST_MODEL_PATH",
     ),
-    # qwen2.5-1.5b is faster than 3b; use 3b as fallback
     "coder": _pick(
-        primary="qwen2.5-1.5b-instruct-q4_k_m.gguf", #qwen2.5-coder-3b-instruct-q4_k_m.gguf
+        primary="qwen2.5-coder-3b-instruct-q4_k_m.gguf",
         fallback="qwen2.5-coder-3b-instruct-q4_k_m.gguf",
         env_key="CODER_MODEL_PATH",
     ),

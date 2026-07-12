@@ -20,11 +20,10 @@ from pathlib import Path
 
 MODELS = [
     {
-        "label": "Phi-4-mini-instruct Q4_K_M (generalist)",
-        # bartowski renames the file with a lowercase 'phi' prefix
-        "repo_id": "bartowski/Phi-4-mini-instruct-GGUF",
-        "filename": "Phi-4-mini-instruct-Q4_K_M.gguf",
-        "local_name": "phi-4-mini-instruct-q4_k_m.gguf",
+        "label": "Qwen2.5-3B-Instruct Q4_K_M (generalist)",
+        "repo_id": "bartowski/Qwen2.5-3B-Instruct-GGUF",
+        "filename": "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+        "local_name": "qwen2.5-3b-instruct-q4_k_m.gguf",
     },
     {
         "label": "Qwen2.5-Coder-3B-Instruct Q4_K_M (coder)",
