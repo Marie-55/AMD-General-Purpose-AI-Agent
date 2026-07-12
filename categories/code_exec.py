@@ -27,21 +27,7 @@ import tempfile
 import json
 from fractions import Fraction
 
-# System prompt for math script generation — tight constraints so the
-# model emits only what we need to execute, nothing extra.
-CODE_GEN_SYSTEM = (
-    "You are a Python code generator. Given a math problem, write a SELF-CONTAINED "
-    "Python script using only the standard library (no external packages, no input()). "
-    "Use the fractions.Fraction class for any division or fraction arithmetic to avoid "
-    "floating-point errors. "
-    "Assign the final answer to a variable named RESULT. "
-    "If RESULT is a float or Fraction, convert to float and round to 2 decimal places: "
-    "RESULT = round(float(RESULT), 2). "
-    "If the result is a whole number after rounding (e.g. 600.0), print it as an integer: "
-    "print(int(RESULT) if RESULT == int(RESULT) else RESULT). "
-    "Return only one complete ```python code block and nothing else. "
-    "No explanation, no markdown outside the block, and no extra text."
-)
+from categories.prompts import CODE_GEN_SYSTEM
 
 
 def build_codegen_messages(problem_text: str) -> list:
@@ -56,6 +42,18 @@ def extract_code(llm_output: str) -> str:
     m = re.search(r"```(?:python)?\s*(.*?)```", llm_output, flags=re.DOTALL)
     if m:
         return m.group(1).strip()
+
+    # No closing fence found. If there's an opening fence with nothing after
+    # it to close it -- almost always a truncated generation (ran out of
+    # max_tokens mid-block) -- strip the opening marker and return
+    # everything after it, rather than falling through to the raw-text case
+    # below. Returning the raw text here would keep the literal ``` marker
+    # in the "code", which is guaranteed invalid Python: a real run hit
+    # exactly this, executing a script whose first line was "```python" and
+    # failing with SyntaxError before ever reaching the actual logic.
+    m_open = re.search(r"```(?:python)?\s*", llm_output)
+    if m_open:
+        return llm_output[m_open.end():].strip()
 
     text = llm_output.strip()
     if not text:

@@ -26,24 +26,14 @@ import re
 import threading
 from typing import Optional
 
+from categories import prompts
+from categories.task_categories import ALL_CATEGORIES as VALID_CATEGORIES
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-
-VALID_CATEGORIES = frozenset(
-    {
-        "factual_knowledge",
-        "math_reasoning",
-        "sentiment",
-        "summarization",
-        "ner",
-        "code_debugging",
-        "logic_puzzle",
-        "code_generation",
-    }
-)
 
 # Qwen2.5-1.5B is primary: stronger at structured JSON output (NER) and
 # more consistent at following format instructions than SmolLM2-1.7B.
@@ -76,14 +66,16 @@ _POSITIVE_TERMS = {
     "smooth", "improved", "better", "best", "exceeded", "works", "worked",
     "fixed", "resolved", "successful", "satisfied", "pleasant", "unbeatable",
     "painless", "clean", "amazing", "reliable", "fortunate", "finally",
+    "flawless", "perfectly", "perfect",
 }
 _NEGATIVE_TERMS = {
     "bad", "broken", "disaster", "frustrating", "unbearable", "slow",
     "awful", "terrible", "worst", "noise", "noisy", "issue", "problem",
     "waiting", "delay", "delayed", "failure", "failed", "bug", "hate",
-    "dumpster", "wrong", "unreliable", "crushed",
+    "dumpster", "wrong", "unreliable", "crushed", "damaged", "dented",
     # Removed: "less" (too generic), "stopped" (context-dependent), "dreading" (context-dependent)
-    # These are handled via phrases below instead.
+    # "late"/"missing" are too generic as bare substrings (e.g. "later",
+    # "calculate", "nothing is missing") -- handled as phrases below instead.
 }
 _SENTIMENT_CONTRAST_TERMS = ("but", "however", "though", "although", "yet", "despite")
 _NEGATIVE_PHRASES = (
@@ -91,6 +83,13 @@ _NEGATIVE_PHRASES = (
     "plant next to the dumpster", "unbearable", "not what i expected", "six transfers",
     "stopped working", "no longer works", "doesn't work", "does not work",
     "makes the product less", "makes it less", "somehow makes",
+    # NOTE: this list is checked as an unconditional early-return ("any
+    # match -> negative") BEFORE the contrast-aware pre/post logic below
+    # ever runs -- it must only contain phrases that are negative with no
+    # plausible "but X is actually fine" continuation. Generic
+    # review-complaint phrases (e.g. "arrived late", "was damaged") belong
+    # in _NEGATIVE_TERMS instead, where they're weighed against whatever
+    # follows a contrast word instead of short-circuiting past it.
 )
 _POSITIVE_PHRASES = (
     "exceeded every expectation", "stopped dreading", "painless", "one of the best",
@@ -137,6 +136,34 @@ class LocalModelSingleton:
       C++ object is never accessed concurrently.
     """
 
+    # How many callers may be admitted to attempt inference (i.e. queued for
+    # the lock) at once. Kept independent of the pipeline's Fireworks
+    # worker-thread count (config/executor.py) -- those threads run
+    # concurrently fine for network calls, but a single CPU-bound local
+    # model gains nothing from many threads queueing for the same lock.
+    #
+    # Tuning history: an earlier version used (2, 1.0s). Under a real
+    # pipeline run (8 workers, each task making up to 2 local calls --
+    # classify_with_local_model then the category handler), that combo
+    # rejected nearly every local attempt: with only 2 admission slots and
+    # real generations taking ~1-3s, a 1.0s admission wait wasn't enough for
+    # even one round of turnover, so callers 3+ almost always failed
+    # instantly. Each rejection then fell through to run_sentiment()'s /
+    # run_ner()'s own crude keyword-heuristic fallback -- which was silently
+    # *accepted* as a good-enough local answer instead of escalating to
+    # Fireworks, producing visibly wrong NER labels ("Mountain View" tagged
+    # PERSON) and self-contradictory sentiment sentences. (The other half of
+    # that fix -- never accepting a heuristic-sourced answer as good enough
+    # -- lives in categories/handlers/base.py::try_local_first.)
+    #
+    # (3, 6.0s) gives 1-2 more admitted slots and several rounds of
+    # turnover time for waiting callers, which meaningfully raises the
+    # genuine local-success rate. The real cost is added worst-case latency
+    # per task, which is cheap here: observed full-pipeline runs finish in
+    # 20-35s against a 540s total budget, so there is no risk of blowing it.
+    _MAX_CONCURRENT_ATTEMPTS = 3
+    _ADMISSION_TIMEOUT_S = 6.0
+
     def __init__(
         self,
         primary_path: str,
@@ -149,6 +176,15 @@ class LocalModelSingleton:
         self._llm = None
         self._loaded_path: Optional[str] = None
         self._lock = threading.Lock()          # ← serialises all generate() calls
+        # Admission gate: caps how many callers may even be queued for the
+        # lock at once. Letting all N pipeline worker threads pile onto one
+        # serialized model means most of them just wait out their own
+        # lock_timeout_s doing nothing productive, then fail anyway --
+        # capping this to a small number means the extra callers fail fast
+        # (ADMISSION_TIMEOUT_S) and escalate to Fireworks immediately instead
+        # of wasting most of a second-scale budget on a queue they were
+        # never going to reach the front of in time.
+        self._admission = threading.BoundedSemaphore(self._MAX_CONCURRENT_ATTEMPTS)
 
         for path, label in ((primary_path, "primary"), (fallback_path, "fallback")):
             if not os.path.isfile(path):
@@ -198,13 +234,35 @@ class LocalModelSingleton:
         max_tokens: int = 200,
         temperature: float = 0.1,
         stop: Optional[list] = None,
+        lock_timeout_s: float = 8.0,
     ) -> str:
         """
         Run synchronous CPU inference and return the generated text (stripped).
 
         This method acquires a threading.Lock for its entire duration so that
         concurrent callers queue up safely instead of racing on the underlying
-        C++ Llama object.
+        C++ Llama object. The lock acquisition itself is bounded by
+        lock_timeout_s: if this caller can't get a turn within that window
+        (e.g. several other pipeline threads are already queued for the same
+        model under concurrent task processing), raise TimeoutError instead
+        of queueing indefinitely.
+
+        This bound matters even for callers that don't pass a timeout
+        explicitly: without it, a caller stuck waiting for the lock can't be
+        abandoned by wrapping the call in a thread-pool-based "timeout" --
+        exiting a `with ThreadPoolExecutor(...) as ex:` block still calls
+        shutdown(wait=True), which blocks until the still-running background
+        thread actually finishes, no matter how long that takes. Bounding the
+        wait here, at the one place that actually blocks, is what makes a
+        caller-side timeout meaningful.
+
+        Before even attempting the lock, this also passes through an
+        admission gate (_MAX_CONCURRENT_ATTEMPTS) so that under heavy
+        concurrent task processing, only a couple of callers queue for the
+        model at a time -- the rest fail in ~_ADMISSION_TIMEOUT_S and
+        escalate to Fireworks immediately, rather than each spending most of
+        lock_timeout_s waiting behind several others' multi-second
+        generations only to fail anyway.
         """
         if self._llm is None:
             raise RuntimeError("Local model is not loaded; cannot run inference.")
@@ -217,8 +275,22 @@ class LocalModelSingleton:
         if stop:
             kwargs["stop"] = stop
 
-        with self._lock:                       # ← only one thread at a time
-            output = self._llm(prompt_str, **kwargs)
+        if not self._admission.acquire(timeout=self._ADMISSION_TIMEOUT_S):
+            raise TimeoutError(
+                "Local model busy: too many callers already waiting for a turn."
+            )
+        try:
+            acquired = self._lock.acquire(timeout=lock_timeout_s)
+            if not acquired:
+                raise TimeoutError(
+                    f"Local model busy: timed out after {lock_timeout_s}s waiting for a turn."
+                )
+            try:
+                output = self._llm(prompt_str, **kwargs)
+            finally:
+                self._lock.release()
+        finally:
+            self._admission.release()
 
         text: str = output["choices"][0]["text"]
         return text.strip()
@@ -288,12 +360,7 @@ def classify_with_local_model(
     Returns the matched category string, or None if the model output does not
     exactly match any known category (caller should fall back to regex).
     """
-    system = (
-        "You are a task classifier. Classify the user's request into exactly one of these "
-        "categories: factual_knowledge, math_reasoning, sentiment, summarization, ner, "
-        "code_debugging, logic_puzzle, code_generation. "
-        "Reply with ONLY the category name, nothing else."
-    )
+    system = prompts.CLASSIFIER_SYSTEM
     user = prompt[:400]
     prompt_str = _build_chatml(system, user)
 
@@ -422,20 +489,34 @@ def _heuristic_sentiment_sentence(label: str, text: str) -> str:
             return " ".join(words)
         return ""
 
-    pos_terms = [t for t in _POSITIVE_TERMS if t in lowered]
-    neg_terms_hit = [t for t in _NEGATIVE_TERMS if t in lowered]
     neg_phrases_hit = [p for p in _NEGATIVE_PHRASES if p in lowered]
     pos_phrases_hit = [p for p in _POSITIVE_PHRASES if p in lowered]
+    # Exclude a bare term if it's actually part of an opposite-polarity
+    # phrase already matched above (e.g. "reliable" is a positive term, but
+    # inside "less reliable" -- already captured as a negative phrase -- it
+    # must not also be credited as positive; that collision previously
+    # produced self-contradictory sentences like "positives (less reliable)
+    # but also negatives (less reliable)").
+    pos_terms = [
+        t for t in _POSITIVE_TERMS
+        if t in lowered and not any(t in np for np in neg_phrases_hit)
+    ]
+    neg_terms_hit = [
+        t for t in _NEGATIVE_TERMS
+        if t in lowered and not any(t in pp for pp in pos_phrases_hit)
+    ]
 
-    if label == "positive":
-        phrase = _phrase_for(pos_phrases_hit + pos_terms, text)
-        detail = f"the text highlights {phrase}" if phrase else "the overall tone is positive and favorable"
-    elif label == "negative":
-        phrase = _phrase_for(neg_phrases_hit + neg_terms_hit, text)
-        detail = f"the text expresses dissatisfaction: {phrase}" if phrase else "the overall tone is critical and unfavorable"
-    elif label == "mixed":
-        pos_phrase = _phrase_for(pos_phrases_hit + pos_terms, text)
-        neg_phrase = _phrase_for(neg_phrases_hit + neg_terms_hit, text)
+    pos_phrase = _phrase_for(pos_phrases_hit + pos_terms, text)
+    neg_phrase = _phrase_for(neg_phrases_hit + neg_terms_hit, text)
+    # A genuinely two-sided text (both positive and negative signal present
+    # -- e.g. "arrived late... but worked perfectly") must have its reason
+    # acknowledge both sides regardless of which single label the decision
+    # logic above ultimately picked for a lopsided-but-still-mixed review.
+    # This is graded directly: a reason that only covers one side fails
+    # even when the label itself would otherwise be acceptable.
+    has_both_sides = bool(pos_phrase) and bool(neg_phrase)
+
+    if label == "mixed" or (has_both_sides and label in ("positive", "negative")):
         if pos_phrase and neg_phrase:
             detail = f"it has positives ({pos_phrase}) but also negatives ({neg_phrase})"
         elif pos_phrase:
@@ -444,23 +525,36 @@ def _heuristic_sentiment_sentence(label: str, text: str) -> str:
             detail = f"it has some positive framing but criticizes ({neg_phrase})"
         else:
             detail = "it contains both positive and negative elements"
+    elif label == "positive":
+        detail = f"the text highlights {pos_phrase}" if pos_phrase else "the overall tone is positive and favorable"
+    elif label == "negative":
+        detail = f"the text expresses dissatisfaction: {neg_phrase}" if neg_phrase else "the overall tone is critical and unfavorable"
     else:  # neutral
         detail = "the text does not express a strong opinion in either direction"
     return f"{label}: {detail}."
 
-def run_sentiment(prompt: str, model: LocalModelSingleton) -> str:
+def run_sentiment(prompt: str, model: LocalModelSingleton) -> tuple[str, str]:
     """
     Heuristic first → local model confirms or corrects → returns final sentence.
     'mixed' is now a first‑class label. The heuristic is especially good at
     detecting mixed sentiment when contrast words like "but" appear.
+
+    Returns (answer, source) where source is "llm" only when the returned
+    text is the model's own words (model_output), and "heuristic" whenever
+    the returned text is _heuristic_sentiment_sentence(...)'s templated
+    text -- which happens both when the model call failed outright AND when
+    it succeeded but the decision logic below chose to override it with the
+    heuristic's verdict (e.g. the model said "neutral" but the heuristic
+    found a confident contrast). Both cases return heuristic-authored text,
+    so both must be tagged "heuristic": source used to be computed once,
+    up front, from "did the model call succeed" alone, which mislabeled
+    every override case as "llm" even though the actual returned sentence
+    was pieced together by the heuristic's fixed-width phrase extractor --
+    caught in a real run producing a grammatically broken justification
+    ("it has positives (is fortunate because the)...") that was still being
+    accepted as an ordinary local success.
     """
-    system = (
-        "Classify the sentiment of the text as positive, negative, mixed, or neutral. "
-        "Use 'mixed' when the text contains both clear positive and negative elements. "
-        "Reply with exactly ONE sentence. "
-        "Start with the label (positive, negative, mixed, or neutral), then a colon, "
-        "then a brief justification. No bullets, no extra sentences, no markdown."
-    )
+    system = prompts.SENTIMENT_LOCAL_SYSTEM
 
     # Strip preamble and get the actual text
     cleaned = _SENTIMENT_STRIP_RE.sub("", prompt).strip()
@@ -498,42 +592,41 @@ def run_sentiment(prompt: str, model: LocalModelSingleton) -> str:
         logger.error("run_sentiment local inference failed: %s", exc)
 
     # ------------------------------------------------------------------
-    # Decision logic (priority order)
+    # Decision logic (priority order) -- source is tagged per return point,
+    # matching exactly which text (model's own vs. heuristic template) is
+    # actually being returned. See the docstring above for why this can't
+    # be a single value computed up front.
     # ------------------------------------------------------------------
     # 1. Model failed → use heuristic
     if model_label is None:
-        return _heuristic_sentiment_sentence(heuristic, cleaned)
+        return _heuristic_sentiment_sentence(heuristic, cleaned), "heuristic"
 
     # 2. Model says neutral but heuristic is confident (pos/neg/mixed) → trust heuristic
     if model_label == "neutral" and heuristic in ("positive", "negative", "mixed"):
-        return _heuristic_sentiment_sentence(heuristic, cleaned)
+        return _heuristic_sentiment_sentence(heuristic, cleaned), "heuristic"
 
     # 3. Heuristic says mixed → override any non‑mixed model label (except if model already mixed)
     if heuristic == "mixed":
         # If model also says mixed, keep model's better sentence
         if model_label == "mixed":
-            return model_output
+            return model_output, "llm"
         # Otherwise, trust the heuristic (it catches contrasts well)
-        return _heuristic_sentiment_sentence("mixed", cleaned)
+        return _heuristic_sentiment_sentence("mixed", cleaned), "heuristic"
 
     # 4. Model and heuristic agree → return model's better sentence
     if model_label == heuristic:
-        return model_output
+        return model_output, "llm"
 
     # 5. Heuristic is positive or negative, model disagrees → trust heuristic
     if heuristic in ("positive", "negative"):
-        return _heuristic_sentiment_sentence(heuristic, cleaned)
+        return _heuristic_sentiment_sentence(heuristic, cleaned), "heuristic"
 
     # 6. Fallback: model was not neutral, heuristic was neutral → trust model
-    return model_output
+    return model_output, "llm"
 
 def run_factual(prompt: str, model: LocalModelSingleton) -> str:
     """Answer factual knowledge prompts directly with the local model."""
-    system = (
-        "Answer the user's question directly and concisely in 2-4 sentences. "
-        "Be as concise as possible and minimize output tokens while answering. "
-        "No preamble, no restating the question, and no markdown unless it is clearly helpful."
-    )
+    system = prompts.FACTUAL_LOCAL_SYSTEM
     prompt_str = _build_chatml(system, prompt.strip())
 
     try:
@@ -576,12 +669,7 @@ def run_summarization(prompt: str, model: LocalModelSingleton) -> str:
     Returns the summary string, or "" if generation failed or the output
     looks like a truncated sentence (so the caller can escalate to Fireworks).
     """
-    system = (
-        "Summarize the text as concisely and clearly as possible. "
-        "Always write complete sentences — never stop mid-sentence. "
-        "Preserve all key facts. Do not add preambles or extra commentary. "
-        "Never apologize or refuse."
-    )
+    system = prompts.SUMMARIZATION_LOCAL_SYSTEM
     prompt_str = _build_chatml(system, prompt.strip())
 
     try:
@@ -602,13 +690,7 @@ def run_summarization(prompt: str, model: LocalModelSingleton) -> str:
 
 def run_logic(prompt: str, model: LocalModelSingleton) -> str:
     """Solve logic/deductive reasoning puzzles with the local model."""
-    system = (
-        "You are a logical reasoning expert. "
-        "Work through the clues one by one, eliminating options as you go. "
-        "End your answer with a single line starting with 'Answer:' followed "
-        "by the complete solution in plain language. "
-        "No code, no markdown, no bullet points — just clear reasoning and the answer."
-    )
+    system = prompts.LOGIC_LOCAL_SYSTEM
     prompt_str = _build_chatml(system, prompt.strip())
 
     try:
@@ -670,7 +752,7 @@ def _heuristic_ner_from_text(source_text: str) -> list[dict]:
         r"\b(?:[A-Z][\w.&-]*\s+)*(?:University|Institute|College|School|Hospital|Microsoft|NVIDIA|UNICEF|Azure|Build|Labs?|Inc|Corp|Group|Bank|Agency|Ministry)(?:\s+[A-Z][\w.&-]*)*\b"
     )
     for match in org_hint_re.finditer(source_text):
-        add(match.group(0), "ORG")
+        add(match.group(0), "ORGANIZATION")
 
     # Capitalized names / locations.
     for match in _NER_CAPITALIZED_PHRASE.finditer(source_text):
@@ -683,10 +765,10 @@ def _heuristic_ner_from_text(source_text: str) -> list[dict]:
         if lowered in _NER_TITLE_ONLY:
             continue
         if any(hint in lowered for hint in _NER_ORG_HINTS):
-            add(text, "ORG")
+            add(text, "ORGANIZATION")
             continue
         if any(part.isupper() and len(part) > 1 for part in text.split()):
-            add(text, "ORG")
+            add(text, "ORGANIZATION")
             continue
         if len(text.split()) >= 2:
             add(text, "PERSON")
@@ -875,26 +957,23 @@ def _repair_json_array(raw: str, source_text: str = "") -> str:
     return "[]"
 
 
-def run_ner(prompt: str, model: LocalModelSingleton) -> str:
+def run_ner(prompt: str, model: LocalModelSingleton) -> tuple[str, str]:
     """
     Extract named entities from the text referenced by prompt.
 
     Isolates the passage to analyse (text after framing phrases like
     "from the text below"). Falls back to full prompt if not found.
 
-    Returns a JSON array string of {"text":…,"type":…} objects, or "[]"
-    if the model output cannot be parsed as a JSON array.
+    Returns (result, source) where result is a JSON array string of
+    {"text":…,"type":…} objects (or "[]" if nothing could be extracted at
+    all), and source is "llm" if either the primary or retry model call
+    produced usable entities, or "heuristic" if both model calls failed and
+    the regex-based heuristic extractor is the only thing that produced a
+    non-empty result. Callers use this to tell a genuine local-model
+    extraction apart from a keyword/regex guess -- the two used to be
+    indistinguishable in metrics.
     """
-    system = (
-    "You are a named entity recognition system. "
-    "Extract all named entities from the text. "
-    "Return ONLY a JSON array. Each element must be an object with exactly "
-    "two keys: 'text' (the entity string) and 'type' (the entity type, e.g. PERSON, ORG, LOCATION, DATE, EVENT, PRODUCT, etc.). "
-    "Do NOT include the entire sentence as an entity. "
-    "Example output: "
-    '[{"text": "Paris", "type": "LOCATION"}, {"text": "2024", "type": "DATE"}, {"text": "Google I/O", "type": "EVENT"}]. '
-    "Do not include any explanation, markdown fences, or keys other than 'text' and 'type'."
-)
+    system = prompts.NER_LOCAL_SYSTEM
     text_to_analyze = _extract_ner_source_text(prompt)
 
     prompt_str = _build_chatml(system, text_to_analyze)
@@ -907,15 +986,11 @@ def run_ner(prompt: str, model: LocalModelSingleton) -> str:
         logger.error("run_ner inference failed: %s", exc)
         raw = ""
 
+    source = "llm"
     result = _repair_json_array(raw, text_to_analyze)
     if result == "[]":
         # Retry once with a stricter prompt before falling back to heuristics.
-        retry_system = (
-            "You are a named entity recognizer. Return ONLY a valid JSON array of objects with keys text and type. "
-            "Use any appropriate entity type label (PERSON, ORG, LOCATION, DATE, EVENT, PRODUCT, etc.). "
-            "Do not add titles, prose, markdown, or explanations. "
-            "If there are no entities, return []."
-        )
+        retry_system = prompts.NER_LOCAL_RETRY_SYSTEM
         retry_prompt = _build_chatml(retry_system, text_to_analyze)
         try:
             retry_raw = model.generate(retry_prompt, max_tokens=150, temperature=0.0)
@@ -927,39 +1002,16 @@ def run_ner(prompt: str, model: LocalModelSingleton) -> str:
         heuristic = _heuristic_ner_from_text(text_to_analyze)
         if heuristic:
             result = json.dumps(heuristic)
+            source = "heuristic"
         else:
             logger.warning("run_ner: could not extract valid JSON array from: %r", raw[:200])
-    return result
+    return result, source
 
 
 
-### MATH CODE
-# Add to local_model.py
-
-# System prompt for math code generation (same as in code_exec.py, but used locally)
-MATH_CODE_SYSTEM = (
-    "You are a Python code generator. Solve the math problem by writing a complete Python script.\n"
-    "Your output must be a single code block starting with ```python and ending with ```.\n"
-    "Do not include any explanation, comments, or extra text outside the code block.\n"
-    "IMPORTANT: The LAST line of your code MUST be a print() statement that outputs the final answer.\n"
-    "Example:\n"
-    "```python\n"
-    "x = 5\n"
-    "y = 10\n"
-    "RESULT = x + y\n"
-    "print(RESULT)\n"
-    "```\n"
-    "Another example:\n"
-    "```python\n"
-    "price = 160 * 0.75\n"
-    "total = price * 1.08\n"
-    "print(total)\n"
-    "```\n"
-    "Now solve this problem:\n"
-)
 def run_math_code(prompt: str, model: LocalModelSingleton) -> str:
     """Generate a Python script to solve the math problem. Returns raw output."""
-    prompt_str = _build_chatml(MATH_CODE_SYSTEM, prompt)
+    prompt_str = _build_chatml(prompts.MATH_CODE_LOCAL_SYSTEM, prompt)
     try:
         # No stop token – let the model finish naturally.
         raw = model.generate(prompt_str, max_tokens=4096, temperature=0.0)
@@ -970,11 +1022,7 @@ def run_math_code(prompt: str, model: LocalModelSingleton) -> str:
 
 def run_math_explanation(prompt: str, model: LocalModelSingleton) -> str:
     """Generate a step‑by‑step reasoning explanation for a math problem."""
-    system = (
-        "You are a math reasoning expert. Work through the problem step by step, "
-        "showing each calculation clearly. End with a line starting with 'Answer:' "
-        "followed by the final numeric value. Keep your response concise but complete."
-    )
+    system = prompts.MATH_EXPLANATION_LOCAL_SYSTEM
     prompt_str = _build_chatml(system, prompt)
     try:
         raw = model.generate(prompt_str, max_tokens=800, temperature=0.1)

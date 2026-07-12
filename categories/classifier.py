@@ -21,12 +21,23 @@ category (or factual_knowledge) is used instead.
 import re
 from typing import Optional, Tuple
 
+from categories.task_categories import (
+    CODE_DEBUGGING,
+    CODE_GENERATION,
+    LOGIC_PUZZLE,
+    NER,
+    SUMMARIZATION,
+    SENTIMENT,
+    MATH_REASONING,
+    FACTUAL_KNOWLEDGE,
+)
+
 # ---------------------------------------------------------------------------
 # Patterns — checked in PRIORITY order (most specific first)
 # ---------------------------------------------------------------------------
 
 CATEGORY_PATTERNS = {
-    "code_debugging": [
+    CODE_DEBUGGING: [
         r"```",
         r"\bbug\b",
         r"\bhas a bug\b",
@@ -36,7 +47,7 @@ CATEGORY_PATTERNS = {
         r"find (the |and fix )?the bug",
         r"identify.*bug",
     ],
-    "code_generation": [
+    CODE_GENERATION: [
         r"write a (python )?function",
         r"implement (this|the following) in python",
         r"\bwrite code\b",
@@ -46,7 +57,7 @@ CATEGORY_PATTERNS = {
         r"write a (python )?(script|program|class)",
         r"implement.*function that",
     ],
-    "logic_puzzle": [
+    LOGIC_PUZZLE: [
         r"logic puzzle",
         r"constraint puzzle",
         r"every clue",
@@ -81,7 +92,7 @@ CATEGORY_PATTERNS = {
         r"which (box|door|container).*(choose|pick|open|inspect)",
         r"without looking",
     ],
-    "ner": [
+    NER: [
         r"named entit",
         r"extract.*entit",
         r"label.*entit",
@@ -97,7 +108,7 @@ CATEGORY_PATTERNS = {
         r"grouped by type",
         r"identify and label every",
     ],
-    "summarization": [
+    SUMMARIZATION: [
         r"summari[sz]e",
         r"\bsummary\b",
         r"\bcondense\b",
@@ -110,7 +121,7 @@ CATEGORY_PATTERNS = {
         r"as (exactly )?\d+ bullet",
         r"as exactly \d+",
     ],
-    "sentiment": [
+    SENTIMENT: [
         r"\bsentiment\b",
         r"positive/negative",
         r"classify the sentiment",
@@ -120,7 +131,7 @@ CATEGORY_PATTERNS = {
         r"classify.*sentiment",
         r"\bpositive\b.*\bnegative\b",
     ],
-    "math_reasoning": [
+    MATH_REASONING: [
         r"how much (change|is|are|remain)",
         r"average speed",
         r"solve step by step",
@@ -139,7 +150,7 @@ CATEGORY_PATTERNS = {
         r"investment",
         r"annually",
     ],
-    "factual_knowledge": [
+    FACTUAL_KNOWLEDGE: [
         r"^what (is|causes|are|does)",
         r"^explain",
         r"who proposed",
@@ -154,14 +165,14 @@ CATEGORY_PATTERNS = {
 
 # Tie-break order (specific → generic).
 PRIORITY = [
-    "code_debugging",
-    "code_generation",
-    "logic_puzzle",
-    "ner",
-    "summarization",
-    "sentiment",
-    "math_reasoning",
-    "factual_knowledge",
+    CODE_DEBUGGING,
+    CODE_GENERATION,
+    LOGIC_PUZZLE,
+    NER,
+    SUMMARIZATION,
+    SENTIMENT,
+    MATH_REASONING,
+    FACTUAL_KNOWLEDGE,
 ]
 
 # ---------------------------------------------------------------------------
@@ -204,7 +215,7 @@ def classify_regex(prompt: str) -> Tuple[str, int]:
     """Score every category and return ``(best_category, best_score)``.
     Kept for the fallback path and for unit tests that call it directly."""
     scores = _score_categories(prompt)
-    best_cat, best_score = "factual_knowledge", 0
+    best_cat, best_score = FACTUAL_KNOWLEDGE, 0
     for cat in PRIORITY:
         if scores[cat] > best_score:
             best_cat, best_score = cat, scores[cat]
@@ -230,7 +241,7 @@ def classify(prompt: str, local_model=None) -> str:
     from categories.local_model import LocalModelSingleton, classify_with_local_model
 
     scores = _score_categories(prompt)
-    regex_cat, regex_score = "factual_knowledge", 0
+    regex_cat, regex_score = FACTUAL_KNOWLEDGE, 0
     for cat in PRIORITY:
         if scores[cat] > regex_score:
             regex_cat, regex_score = cat, scores[cat]
@@ -249,10 +260,10 @@ def classify(prompt: str, local_model=None) -> str:
         # if regex ALSO found nothing, this is the exact ambiguous case where
         # the model's order-bias default is least trustworthy. Only accept
         # a non-default category from it.
-        if lm_cat is not None and lm_cat != "factual_knowledge":
+        if lm_cat is not None and lm_cat != FACTUAL_KNOWLEDGE:
             return _apply_ner_guard(lm_cat, prompt, scores)
 
-    return "factual_knowledge"
+    return FACTUAL_KNOWLEDGE
 
 def _apply_ner_guard(category: str, prompt: str, scores: dict) -> str:
     """
@@ -260,76 +271,14 @@ def _apply_ner_guard(category: str, prompt: str, scores: dict) -> str:
     framing, reject it and fall back to the next-best scoring category
     (excluding ner), or ``factual_knowledge`` if nothing else scored.
     """
-    if category != "ner":
+    if category != NER:
         return category
     if _ner_is_plausible(prompt):
-        return "ner"
+        return NER
 
     # Find next-best category (excluding ner).
     for cat in PRIORITY:
-        if cat != "ner" and scores.get(cat, 0) > 0:
+        if cat != NER and scores.get(cat, 0) > 0:
             return cat
-    return "factual_knowledge"
+    return FACTUAL_KNOWLEDGE
 
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-# def classify(prompt: str, local_model=None) -> str:
-#     """
-#     Return one of the 8 fixed category strings for a raw prompt.
-
-#     Parameters
-#     ----------
-#     prompt:
-#         The raw user prompt text.
-#     local_model:
-#         Optional ``LocalModelSingleton``.  Used as a second-pass classifier
-#         when regex confidence is low.  When ``None``, pure regex is used
-#         (backward-compatible with existing tests).
-#     """
-#     from categories.local_model import LocalModelSingleton, classify_with_local_model
-
-#     # Score all categories.
-#     text = prompt.lower()
-#     scores = {cat: 0 for cat in CATEGORY_PATTERNS}
-#     for cat, patterns in CATEGORY_PATTERNS.items():
-#         for pat in patterns:
-#             if re.search(pat, text, flags=re.IGNORECASE | re.MULTILINE):
-#                 scores[cat] += 1
-
-#     regex_cat, regex_score = "factual_knowledge", 0
-#     for cat in PRIORITY:
-#         if scores[cat] > regex_score:
-#             regex_cat, regex_score = cat, scores[cat]
-
-#     # Apply NER guard to regex result before trusting it.
-#     regex_cat = _apply_ner_guard(regex_cat, prompt, scores)
-
-#     # High-confidence regex hit — return immediately.
-#     if regex_score >= 2:
-#         return regex_cat
-
-#     loaded_model: Optional[LocalModelSingleton] = (
-#         local_model if (local_model is not None and local_model.is_loaded()) else None
-#     )
-
-#     if regex_score == 1:
-#         if loaded_model is not None:
-#             lm_cat = classify_with_local_model(prompt, loaded_model)
-#             if lm_cat is not None:
-#                 # Apply NER guard to local model result too.
-#                 lm_cat = _apply_ner_guard(lm_cat, prompt, scores)
-#                 return lm_cat
-#         return regex_cat
-
-#     # regex_score == 0: delegate entirely to local model.
-#     if loaded_model is not None:
-#         lm_cat = classify_with_local_model(prompt, loaded_model)
-#         if lm_cat is not None:
-#             lm_cat = _apply_ner_guard(lm_cat, prompt, scores)
-#             return lm_cat
-#         return "factual_knowledge"
-
-#     return regex_cat

@@ -1,179 +1,112 @@
-# Current Architecture
+# Architecture
 
 ## Overview
 
 This repository implements a single-run Track 1 agent that reads `/input/tasks.json`, solves each task, and writes `/output/results.json`.
 
-The system is a hybrid router with three execution styles:
+The system is a hybrid router: cheap categories are answered by a bundled local GGUF model first, escalating to Fireworks only when the local answer isn't good enough; a few categories go straight to Fireworks because a small local model can't do them reliably. Every path guarantees a non-empty answer.
 
-- local GGUF inference for cheap categories
-- Fireworks inference for categories that need remote model access
-- local Python execution for math reasoning, with Fireworks fallback when needed
+Code is organized into three layers so parameters, prompts, and business logic never live in the same place:
 
-Every path is wrapped in prompt shaping, retries, and a non-empty final fallback so the pipeline can always write a result.
+- **`config.py`** — every tunable number: timeouts, per-category token budgets, and the Fireworks role-routing tables.
+- **`categories/prompts.py`** — every literal string sent to a model (local or Fireworks), keyed by category.
+- **`categories/handlers/*.py`** — the actual per-category decision logic, reading from the two files above instead of owning literals.
 
 ## End-to-End Flow
 
-1. `main.py` loads the task list from JSON.
-2. `categories.executor.py` detects the runtime profile and chooses worker counts and llama.cpp settings.
-3. `categories.local_model.py` loads the bundled GGUF model once as a singleton.
-4. `categories.routing.py` resolves Fireworks roles against the allowed model list and health-probes the candidates.
-5. `categories.classifier.py` assigns each raw prompt to one of the fixed task categories.
-6. `main.py` sends the task through the category-specific path.
-7. `categories.metrics.py` records latency and token usage.
-8. `main.py` writes the final list of `{task_id, answer}` objects to `/output/results.json`.
+1. `main.py` loads the task list from `/input/tasks.json`.
+2. `categories/executor.py` detects the runtime profile (`docker` / `amd_notebook` / `local`) and picks worker counts and llama.cpp settings.
+3. `categories/local_model.py` loads the bundled GGUF model once as a singleton (`get_local_model()`).
+4. `categories/routing.py` resolves each Fireworks role to a concrete model ID by health-probing the `ALLOWED_MODELS` candidates once at startup.
+5. For each task, `categories/classifier.py` assigns one of the 8 fixed categories (`categories/task_categories.py`).
+6. `categories/handlers/__init__.py::dispatch()` routes the task to the matching handler module.
+7. `categories/metrics.py` records latency and token usage for every model call.
+8. `main.py` writes the final `{task_id, answer}` list to `/output/results.json`.
 
-## Exact Routing Map
+## Category Routing Map
 
-### Local model categories
+| Category | Local-first? | Fireworks role (`config.CATEGORY_ROLE`) | Handler |
+|---|---|---|---|
+| `sentiment` | yes | `cheap_general` | `categories/handlers/sentiment.py` |
+| `factual_knowledge` | yes | `cheap_general` | `categories/handlers/factual.py` |
+| `summarization` | yes | `summarization` (dedicated cascade) | `categories/handlers/summarization.py` |
+| `ner` | yes | `ner_general` | `categories/handlers/ner.py` |
+| `logic_puzzle` | yes | `reasoning_specialist` | `categories/handlers/logic.py` |
+| `math_reasoning` | yes (local Python exec) | `code_specialist` (fallback only) | `categories/handlers/math_reasoning.py` |
+| `code_generation` | no | `code_specialist` | `categories/handlers/code_verify.py` |
+| `code_debugging` | no | `code_specialist` | `categories/handlers/code_verify.py` |
 
-These categories use the bundled local GGUF model first:
+If `classify()` ever returned something outside these 8 categories, `categories/handlers/general.py` is the dispatch fallback — a defensive safety net, not a path any real task should take.
 
-- `sentiment` → local Qwen2.5-1.5B
-- `factual_knowledge` → local Qwen2.5-1.5B
-- `summarization` → local Qwen2.5-1.5B, with Fireworks fallback if the local result looks off
-
-### Fireworks categories
-
-These categories are routed through Fireworks via `categories/routing.py`:
-
-- `ner` → `cheap_general`
-- `logic_puzzle` → `reasoning_specialist`
-- `code_debugging` → `code_specialist`
-- `code_generation` → `code_specialist`
-
-Role resolution currently maps those roles to the first healthy allowed Fireworks model matching the tier:
-
-- `cheap_general` → first healthy match of `gemma-4-26b-a4b-it` or `minimax-m3`
-- `cheap_alt` → first healthy match of `gemma-4-31b-it-nvfp4` or `minimax-m3`
-- `reasoning_specialist` → first healthy match of `minimax-m3`
-- `code_specialist` → first healthy match of `kimi-k2p7-code`
-
-If no candidate in a role’s tier is reachable, the system falls back to the first allowed model.
-
-### Math reasoning
-
-- `math_reasoning` uses the code-execution path.
-- Fireworks generates a short Python script.
-- The script is executed locally in a sandbox.
-- If execution fails, the agent falls back to a natural-language Fireworks answer.
+Role → model resolution happens once per run in `categories/routing.py::resolve_roles()`: each role has an ordered list of candidate-model keyword tiers (`config.ROLE_CANDIDATE_TIERS`); the first tier whose model responds to a live health probe wins for the whole run.
 
 ## Category Pipelines
 
-### Sentiment
+### Sentiment, factual knowledge, summarization, NER, logic puzzles
 
-- `main.py` classifies the prompt.
-- `run_sentiment()` in `categories/local_model.py` uses the bundled GGUF model.
-- The output is a single sentence that starts with `positive`, `negative`, or `neutral` and includes a one-sentence justification.
-- The answer is accepted locally and logged as a local call.
+All five follow the same shape, implemented once as `categories/handlers/base.py::try_local_first()`:
 
-### Factual knowledge
+1. If the local model is loaded, run it with an 8s timeout.
+2. Check the answer against a category-specific "is this good enough" gate (e.g. `factual.py::_factual_answer_is_confident`, `logic.py::_logic_answer_is_confident`, a minimum word count for summarization, JSON-array validity for NER).
+3. If it passes, log it as a local call and return immediately (zero Fireworks tokens).
+4. Otherwise escalate: `sentiment.py` and `summarization.py` have their own multi-tier Fireworks retry logic; `factual.py`, `ner.py`, and `logic.py` fall through to `categories/normalizer.py::normalize_prompt()` + `categories/routing.py::route()` and retry once via `base.py::recover_empty_answer()` if the first Fireworks call comes back empty.
 
-- `main.py` normalizes the prompt and routes it to `run_factual()` in `categories/local_model.py`.
-- The local prompt asks for 2-3 sentences maximum, with no background context.
-- The prompt also asks the model to minimize output tokens while maximizing clarity.
-- This path stays local and does not use Fireworks unless the local answer is empty.
+### Math reasoning
 
-### Summarization
+- `categories/handlers/math_reasoning.py::_solve_math()` first asks the local model for a short Python script (`run_math_code`), executes it in a sandboxed subprocess (`categories/code_exec.py::run_code_safely`), and injects a missing `print()` if the model forgot one.
+- If local execution fails, it asks Fireworks for a script instead, retries once with the error message on failure, and falls back to a terse natural-language numeric answer as a last resort.
+- If the prompt asks for an explanation, one is generated (locally if possible, otherwise via Fireworks) and appended around the numeric answer.
 
-- `main.py` normalizes the prompt and routes it to `run_summarization()` in `categories/local_model.py`.
-- The prompt tells the model to be as concise and clear as possible and to minimize output tokens.
-- The prompt also adds the anti-refusal clause.
-- `main.py` accepts the local summary if it looks reasonable; otherwise it falls back to Fireworks.
+### Code generation / debugging
 
-### NER
+- `categories/handlers/code_verify.py::_solve_via_code_verify()` calls the Fireworks code specialist, retries once with a stricter prompt if the output looks truncated (no code fence, or a fence with no real function body), then hands the result to `categories/code_verifier.py::verify_and_fix()`.
+- `verify_and_fix()` AST-parses the code and, for `code_generation`, actually calls every top-level function with generic smoke-test arguments (`categories/code_exec.py::run_code_generation_check`) rather than just checking that the script ran. It retries the fix up to twice before falling back to a plain natural-language answer.
 
-- `main.py` normalizes the prompt.
-- The prompt is routed to Fireworks using `cheap_general`.
-- The NER prompt asks for a simple extraction format: `entity:label,entity:label`.
-- The model is instructed to return only entity/label pairs and to avoid markdown or conversational text.
+## Module Reference
 
-### Logic puzzles
-
-- `main.py` routes logic puzzles to Fireworks reasoning.
-- `categories.routing.route("logic_puzzle")` resolves the `reasoning_specialist` role.
-- The prompt asks the model to reason through the puzzle and state the final answer clearly.
-
-### Code debugging and code generation
-
-- `main.py` sends these categories through the Fireworks code-specialist path.
-- `categories.code_verifier.verify_and_fix()` checks the output with AST parsing and, for code generation, execution.
-- If verification fails, the system retries with a stricter fix prompt.
-- If it still fails, the agent falls back to a non-empty answer.
-
-## Module Connections
-
-### `main.py`
-
-This is the orchestration layer.
-
-It connects:
-
-- `categories.classifier.classify()` for task classification
-- `categories.routing.route()` for Fireworks model selection
-- `categories.normalizer.normalize_prompt()` for prompt shaping
-- `categories.local_model.run_sentiment()`, `run_factual()`, and `run_summarization()` for local inference
-- `categories.code_exec.build_codegen_messages()` and `run_code_safely()` for sandboxed execution
-- `categories.code_verifier.verify_and_fix()` for code validation
-- `categories.metrics.MetricsCollector` for logging
-
-### `categories/classifier.py`
-
-This module performs category detection using regex heuristics and optional local-model confirmation.
-
-### `categories/local_model.py`
-
-This module owns the bundled GGUF singleton and exposes local helpers for sentiment, factual knowledge, and summarization.
-
-### `categories/normalizer.py`
-
-This module builds category-specific chat prompts and sets the token budgets.
-
-### `categories/routing.py`
-
-This module maps each category to a Fireworks role, probes the candidate models, and returns the resolved model id.
-
-### `categories/code_exec.py`
-
-This module builds math code-generation prompts and executes generated Python in a subprocess.
-
-### `categories/code_verifier.py`
-
-This module verifies and repairs generated code before allowing it to be returned.
-
-### `categories/prompt_compressor.py`
-
-This module reduces long prompts with conservative sentence selection before sending them to Fireworks.
-
-### `categories/metrics.py`
-
-This module collects token counts, request latency, and run summaries.
-
-### `utils/fireworks_client.py`
-
-This module wraps the OpenAI-compatible Fireworks client and streams usage-aware completions.
+| Module | Responsibility |
+|---|---|
+| `main.py` | Entrypoint: load tasks, build the Fireworks client + local model, dispatch each task, write results. No business logic. |
+| `config.py` | Timeouts, per-category token budgets, Fireworks role-routing tables. |
+| `categories/task_categories.py` | The 8 category name constants and category-set groupings — single source of truth so a typo becomes an import error, not a silent misroute. |
+| `categories/prompts.py` | Every literal prompt string, one constant/dict per category or module. |
+| `categories/classifier.py` | Regex scoring + optional local-model tie-break, with an NER plausibility guard. |
+| `categories/normalizer.py` | Strips conversational fluff, wraps the category instruction from `prompts.py`, and enforces mechanical summarization constraints (exact word/bullet counts). |
+| `categories/routing.py` | Resolves each Fireworks role to a concrete, health-checked model ID. |
+| `categories/local_model.py` | Owns the GGUF singleton; exposes `run_sentiment`, `run_factual`, `run_summarization`, `run_ner`, `run_logic`, `run_math_code`, `run_math_explanation`. |
+| `categories/code_exec.py` | Extracts code from model output; runs it in a sandboxed subprocess; smoke-tests `code_generation` output by calling its functions. |
+| `categories/code_verifier.py` | AST/exec verification and the auto-fix retry loop for code tasks. |
+| `categories/prompt_compressor.py` | Pure-Python TF-IDF-style sentence compression for long prompts (no ML dependency). |
+| `categories/metrics.py` | Per-task latency/token logging and the run summary report. |
+| `categories/executor.py` | Detects the runtime profile (docker / amd_notebook / local) and derives thread counts / llama.cpp settings from it. |
+| `categories/handlers/` | One module per category (`handle(task, category, ctx) -> {"task_id", "answer"}`) plus `base.py` (shared local-first/fallback helpers) and `context.py` (`PipelineContext`). |
+| `utils/fireworks_client.py` | OpenAI-compatible Fireworks client wrapper; streams responses and records token/latency metrics. |
 
 ## Packaging and Runtime
 
-The Docker image bundles the local model files under `/app/models/`.
-
-The Dockerfile sets:
+The Docker image bundles the local model files under `/app/models/`. The Dockerfile sets:
 
 - `EVAL_ENV=docker`
-- `LOCAL_MODEL_PATH=/app/models/qwen2.5-1.5b-instruct-q4_k_m.gguf`
+- `LOCAL_MODEL_PATH=/app/models/qwen2.5-3b-instruct-q4_k_m.gguf`
 - `LOCAL_MODEL_FALLBACK_PATH=/app/models/smollm2-1.7b-instruct-q4_k_m.gguf`
 
-The evaluation harness injects `FIREWORKS_API_KEY`, `FIREWORKS_BASE_URL`, and `ALLOWED_MODELS` at runtime.
+The evaluation harness injects `FIREWORKS_API_KEY`, `FIREWORKS_BASE_URL`, and `ALLOWED_MODELS` at runtime — never hardcoded.
+
+## Testing
+
+- `tests/unit/` — pure-logic pytest tests (classifier scoring, prompt normalization, code extraction, compression, category-table consistency).
+- `tests/golden/` — runs the real `main.run_pipeline()` against a fixed task set with an in-memory fake Fireworks client (`tests/golden/fake_client.py`), asserting every category still produces a well-formed answer. This is the regression harness for structural changes.
+- `tests/run_fireworks_pipeline.py` — real-API smoke runner against `input/tasks.json`; requires `FIREWORKS_API_KEY` / `FIREWORKS_BASE_URL` / `ALLOWED_MODELS`, spends real tokens.
+- `tests/check_model_availability.py` — manual dev script that probes each Fireworks model ID; not pytest-collected because it makes billed API calls at import time.
+
+Run `pytest` from the repo root for the free/local suite.
 
 ## Reliability and Cost Strategy
 
-The architecture is optimized for three goals:
-
-1. Keep cheap categories local where possible.
-2. Use Fireworks only for the categories that need it.
-3. Prevent empty outputs by applying category-specific fallback behavior.
-
-The token-heavy paths are NER, logic reasoning, and the code branches that need Fireworks completions.
+1. Prefer local inference for every category where a small model can plausibly do the job (sentiment, factual knowledge, summarization, NER, logic puzzles, math).
+2. Escalate to Fireworks only when the local answer fails an explicit confidence/validity gate, never unconditionally.
+3. Guarantee a non-empty answer for every task via `categories/handlers/base.py::ensure_nonempty_answer()`, which has a category-specific last-resort fallback.
+4. Verify structured/code outputs locally (AST parse, sandboxed execution, JSON validation) instead of trusting the model's first answer.
 
 ## Diagram
 
@@ -183,426 +116,21 @@ flowchart TD
     B --> C[Load local GGUF singleton]
     C --> D[Resolve Fireworks roles]
     D --> E[Classify task]
-    E --> F{Category}
+    E --> F{dispatch by category}
 
-    F -->|sentiment| G[Local sentiment model]
-    F -->|factual_knowledge| H[Local factual model]
-    F -->|summarization| I[Local summarizer]
-    F -->|ner| J[Normalize prompt + Fireworks cheap_general]
-    F -->|logic_puzzle| K[Normalize prompt + Fireworks reasoning_specialist]
-    F -->|math_reasoning| L[Code generation prompt]
-    F -->|code_debugging / code_generation| M[Fireworks code specialist]
-
-    L --> N[Run generated Python locally]
-    N -->|fail| O[Fireworks NL fallback]
-    M --> P[AST / exec verification]
-    P -->|fail| Q[Fix retry / fallback]
-
-    G --> R[Ensure non-empty answer]
+    F -->|sentiment / factual_knowledge / summarization / ner / logic_puzzle| G[try_local_first]
+    G -->|good enough| R[Ensure non-empty answer]
+    G -->|not good enough| H[Category-specific Fireworks escalation]
     H --> R
-    I --> R
+
+    F -->|math_reasoning| I[Local Python codegen + exec]
+    I -->|fail| J[Fireworks codegen -> exec -> NL fallback]
+    I -->|ok| R
     J --> R
-    K --> R
-    O --> R
-    Q --> R
+
+    F -->|code_generation / code_debugging| K[Fireworks code specialist]
+    K --> L[AST / exec verification + auto-fix retries]
+    L --> R
+
     R --> S[Write /output/results.json]
-```
-# Current Architecture
-
-## Overview
-
-This repository implements a single-run Track 1 agent that reads `/input/tasks.json`, solves each task, and writes `/output/results.json`.
-
-The architecture is a hybrid pipeline:
-
-- some categories run locally through the bundled GGUF model
-- some categories go through Fireworks routing with model-role resolution
-- some categories use local Python execution as a verification/sandbox layer
-- every path is wrapped in prompt shaping, retries, and non-empty fallback logic
-
-## End-to-End Flow
-
-1. `main.py` loads the task list from JSON.
-2. `categories.executor.py` detects the runtime profile and sets worker counts and local-model settings.
-3. `categories.local_model.py` loads the bundled GGUF model once as a singleton.
-4. `categories.routing.py` resolves Fireworks roles against the allowed model list and health-probes the candidates.
-5. `categories.classifier.py` assigns each raw prompt to one of the fixed task categories.
-6. `main.py` sends the task down the category-specific path.
-7. `categories.metrics.py` records latency and token usage.
-8. `main.py` writes the final list of `{task_id, answer}` objects to `/output/results.json`.
-
-## Exact Routing Map
-
-### Local model categories
-
-These categories use the bundled local GGUF model first:
-
-- `sentiment` → local Qwen2.5-1.5B
-
-The local sentiment path is implemented in `categories/local_model.py` via `run_sentiment()`.
-
-### Fireworks categories
-
-These categories are routed through Fireworks via `categories/routing.py`:
-
-- `factual_knowledge` → `cheap_general`
-- `summarization` → `cheap_alt`
-- `ner` → `cheap_general`
-- `code_debugging` → `code_specialist`
-- `code_generation` → `code_specialist`
-- `math_reasoning` → `code_specialist`
-- `logic_puzzle` → `code_specialist`
-
-The role name is resolved at startup to the first healthy allowed Fireworks model matching that tier.
-
-Current role-to-model resolution logic:
-
-- `cheap_general` → first healthy match of `gemma-4-26b-a4b-it` or `minimax-m3`
-- `cheap_alt` → first healthy match of `gemma-4-31b-it-nvfp4` or `minimax-m3`
-- `quality_general` → first healthy match of `gemma-4-31b-it` or `minimax-m3`
-- `code_specialist` → first healthy match of `kimi-k2p7-code`
-- `reasoning_specialist` → first healthy match of `minimax-m3`
-
-If no candidate in a role’s tier is reachable, the system falls back to the first allowed model.
-
-## Category Pipelines
-
-### Sentiment
-
-- `main.py` classifies the prompt.
-- `run_sentiment()` in `categories/local_model.py` cleans the prompt and returns `positive`, `negative`, or `mixed`.
-- The answer is accepted directly and logged as a local call.
-
-### Factual knowledge
-
-- `main.py` normalizes the prompt with `categories.normalizer.normalize_prompt()`.
-- The prompt is routed to Fireworks using `cheap_general`.
-- `categories.normalizer.get_max_tokens()` caps the request at 150 tokens.
-- The factual prompt instructs the model to answer in 2-3 sentences with no background context.
-
-### Summarization
-
-- `main.py` normalizes the prompt.
-- The prompt is routed to Fireworks using `cheap_alt`.
-- The summarization prompt asks the model to be as concise as possible and strictly minimize output tokens.
-- The prompt also tells the model not to apologize or refuse, and to return the closest possible summary if an exact count is hard.
-- `main.py` accepts the model output directly and does not perform word-count post-validation.
-
-### NER
-
-- `main.py` normalizes the prompt.
-- The prompt is routed to Fireworks using `cheap_general`.
-- The NER prompt requires JSON-only output with `text` and `type` keys.
-- The model is expected to return an empty JSON array `[]` if no entities are found.
-
-### Math reasoning
-
-- `main.py` sends math tasks to the code-exec path.
-- `categories.code_exec.build_codegen_messages()` creates a Python-script prompt.
-- Fireworks returns a short script.
-- `categories.code_exec.run_code_safely()` executes the script in a sandboxed subprocess.
-- If execution fails, `main.py` falls back to a natural-language Fireworks answer.
-
-### Logic puzzles
-
-- `main.py` sends logic puzzles through the same code-execution path as math reasoning.
-- `categories.code_exec.py` now treats logic puzzles as code-generation tasks too.
-- The system prompt asks the model to solve the puzzle with constraints, permutations, or elimination and print the final answer to stdout.
-- If the script path fails, the task falls back through the same recovery logic as math.
-
-### Code debugging and code generation
-
-- `main.py` normalizes the prompt.
-- Fireworks generates code through the `code_specialist` role.
-- `categories.code_verifier.verify_and_fix()` checks the code with AST parsing and, for code generation, execution.
-- If verification fails, the system retries with a fix prompt.
-- If it still fails, the agent falls back to a plain text answer.
-
-## Module Connections
-
-### `main.py`
-
-This is the orchestration layer.
-
-It connects:
-
-- `categories.classifier.classify()` for task classification
-- `categories.routing.route()` for Fireworks model selection
-- `categories.normalizer.normalize_prompt()` for prompt shaping
-- `categories.code_exec.build_codegen_messages()` and `run_code_safely()` for sandboxed execution
-- `categories.code_verifier.verify_and_fix()` for code validation
-- `categories.local_model.run_sentiment()` for local sentiment inference
-- `categories.metrics.MetricsCollector` for logging
-
-### `categories/classifier.py`
-
-This module performs category detection using regex heuristics and optional local-model confirmation.
-
-### `categories/local_model.py`
-
-This module owns the bundled GGUF singleton and exposes local helpers such as `run_sentiment()`.
-
-### `categories/normalizer.py`
-
-This module builds the category-specific chat prompts and sets the token budgets.
-
-### `categories/routing.py`
-
-This module maps each category to a Fireworks role, probes the candidate models, and returns the resolved model id.
-
-### `categories/code_exec.py`
-
-This module builds math/logic code-generation prompts and executes generated Python in a subprocess.
-
-### `categories/code_verifier.py`
-
-This module verifies and repairs generated code before allowing it to be returned.
-
-### `categories/prompt_compressor.py`
-
-This module reduces long prompts with conservative sentence selection before sending them to Fireworks.
-
-### `categories/metrics.py`
-
-This module collects token counts, request latency, and run summaries.
-
-### `utils/fireworks_client.py`
-
-This module wraps the OpenAI-compatible Fireworks client and streams usage-aware completions.
-
-## Packaging and Runtime
-
-The Docker image bundles the local model files under `/app/models/`.
-
-The Dockerfile sets:
-
-- `EVAL_ENV=docker`
-- `LOCAL_MODEL_PATH=/app/models/qwen2.5-1.5b-instruct-q4_k_m.gguf`
-- `LOCAL_MODEL_FALLBACK_PATH=/app/models/smollm2-1.7b-instruct-q4_k_m.gguf`
-
-The evaluation harness injects `FIREWORKS_API_KEY`, `FIREWORKS_BASE_URL`, and `ALLOWED_MODELS` at runtime.
-
-## Reliability and Cost Strategy
-
-The architecture is optimized for three goals:
-
-1. Keep cheap categories local where possible.
-2. Use Fireworks only for the categories that need it.
-3. Prevent empty outputs by applying category-specific fallback behavior.
-
-The token-heavy paths are factual knowledge, summarization, NER, and the code/logic branches that need Fireworks completions.
-
-## Diagram
-
-```mermaid
-flowchart TD
-    A[Read /input/tasks.json] --> B[Detect runtime profile]
-    B --> C[Load local GGUF singleton]
-    C --> D[Resolve Fireworks roles]
-    D --> E[Classify task]
-    E --> F{Category}
-
-    F -->|sentiment| G[Local sentiment model]
-    F -->|factual_knowledge| H[Normalize prompt + Fireworks cheap_general]
-    F -->|summarization| I[Normalize prompt + Fireworks cheap_alt]
-    F -->|ner| J[Normalize prompt + Fireworks cheap_general]
-    F -->|math_reasoning| K[Code generation prompt]
-    F -->|logic_puzzle| K
-    F -->|code_debugging / code_generation| L[Fireworks code specialist]
-
-    K --> M[Run generated Python locally]
-    M -->|fail| N[Fireworks NL fallback]
-    L --> O[AST / exec verification]
-    O -->|fail| P[Fix retry / fallback]
-
-    G --> Q[Ensure non-empty answer]
-    H --> Q
-    I --> Q
-    J --> Q
-    N --> Q
-    P --> Q
-    Q --> R[Write /output/results.json]
-```
-# Current Architecture
-
-## Overview
-
-This repository implements a single-run Track 1 agent that reads `/input/tasks.json`, solves each task, and writes `/output/results.json`.
-
-The design is a hybrid routing system:
-
-- Use local models for zero-token categories when possible.
-- Use Fireworks only when the local path is not appropriate.
-- Apply category-specific prompt shaping, verification, and fallback logic to avoid empty outputs.
-
-## Execution Flow
-
-1. `main.py` loads the task list from JSON.
-2. The runtime profile is detected in `categories/executor.py`.
-3. A local GGUF model is loaded once through `categories/local_model.py`.
-4. Fireworks model roles are resolved in `categories/routing.py`.
-5. Each task is classified by `categories/classifier.py`.
-6. The task is routed to the best path for that category.
-7. The final answers are written to `output/results.json`.
-
-## Category Routing
-
-### Local categories
-
-- `sentiment`
-- `ner`
-
-These categories use the bundled local GGUF model first. They are intended to consume zero Fireworks tokens.
-
-### Math reasoning
-
-- The agent first asks Fireworks for a short Python solution script.
-- The script is executed locally in a sandbox.
-- If execution fails, the agent falls back to a natural-language Fireworks answer.
-
-### Logic puzzles
-
-- Logic puzzles go directly to Fireworks reasoning.
-- The code-execution path is skipped because these tasks are not reliable to solve as generated Python.
-
-### Code debugging and code generation
-
-- Fireworks produces a code answer.
-- The output is verified by AST parsing and, for code generation, execution.
-- If verification fails, the agent retries with a stricter fix prompt.
-- If needed, it falls back to a non-empty natural-language answer.
-
-### General Fireworks tasks
-
-- Factual knowledge
-- Summarization
-- NER fallback cases
-- Other non-local categories
-
-These use prompt normalization and, for long prompts, lightweight compression before calling Fireworks.
-
-## Main Modules
-
-### `main.py`
-
-Coordinates the per-task flow. It contains:
-
-- task processing
-- fallback handling
-- empty-answer recovery
-- summarization post-processing
-- output file writing
-
-### `categories/classifier.py`
-
-Implements the task classifier.
-
-It combines regex heuristics with optional local-model confirmation and includes an NER plausibility guard so prompts containing proper nouns are not mislabeled as NER unless the task explicitly asks for extraction.
-
-### `categories/local_model.py`
-
-Loads and serves the bundled local GGUF model.
-
-It provides:
-
-- zero-shot task classification support
-- sentiment classification
-- NER extraction
-- heuristic fallback behavior when the model output is malformed
-
-### `categories/normalizer.py`
-
-Builds category-specific system prompts and default token budgets.
-
-It also applies summarization constraint enforcement for exact word-count and maximum-word tasks.
-
-### `categories/code_exec.py`
-
-Creates math code-generation prompts and runs generated Python safely in a subprocess.
-
-### `categories/code_verifier.py`
-
-Checks code answers using AST parsing and, for code generation, execution.
-
-It retries broken code with a stricter fix prompt before falling back.
-
-### `categories/prompt_compressor.py`
-
-Provides conservative sentence-level compression for long prompts.
-
-### `categories/routing.py`
-
-Maps categories to Fireworks roles and resolves which model should be used for each role at startup.
-
-### `categories/metrics.py`
-
-Collects latency and token statistics per task and prints the run summary.
-
-### `utils/fireworks_client.py`
-
-Wraps the OpenAI-compatible Fireworks API client and records usage metrics from streamed completions.
-
-## Local Model Packaging
-
-The Docker image bundles the local model files under `/app/models/`.
-
-The Dockerfile sets:
-
-- `EVAL_ENV=docker`
-- `LOCAL_MODEL_PATH=/app/models/qwen2.5-1.5b-instruct-q4_k_m.gguf`
-- `LOCAL_MODEL_FALLBACK_PATH=/app/models/smollm2-1.7b-instruct-q4_k_m.gguf`
-
-This lets the evaluation container load the local model without extra setup.
-
-## Reliability Strategy
-
-The current architecture is optimized around three failure controls:
-
-1. Prefer local inference for categories that can be answered cheaply.
-2. Verify structured outputs before accepting them.
-3. Guarantee that a task never exits with an empty answer.
-
-## Cost Strategy
-
-The system tries to keep Fireworks token usage low by:
-
-- routing sentiment and NER locally
-- compressing long prompts
-- using short code-generation prompts for math
-- verifying code locally instead of repeatedly re-querying the model
-
-The main token-heavy path remains logic reasoning.
-
-## Current Tradeoffs
-
-- The architecture is token-efficient, but some fallback answers can reduce accuracy if the model path fails.
-- NER and sentiment are cheap in token terms, but local inference can increase runtime.
-- Logic puzzles still rely heavily on Fireworks and remain the weakest accuracy/cost balance point.
-
-## End-to-End Picture
-
-```mermaid
-flowchart TD
-    A[Read /input/tasks.json] --> B[Detect runtime profile]
-    B --> C[Load local GGUF model]
-    C --> D[Resolve Fireworks roles]
-    D --> E[Classify task]
-    E --> F{Category}
-
-    F -->|sentiment / ner| G[Local model]
-    F -->|math_reasoning| H[Fireworks script generation]
-    H --> I[Local Python execution]
-    I -->|fail| J[Fireworks NL fallback]
-    F -->|logic_puzzle| K[Fireworks reasoning]
-    F -->|code_debugging / code_generation| L[Fireworks code]
-    L --> M[AST / exec verification]
-    M -->|fail| N[Fix retry / fallback]
-    F -->|factual / summarization / fallback| O[Normalize + compress + Fireworks]
-
-    G --> P[Ensure non-empty answer]
-    J --> P
-    K --> P
-    N --> P
-    O --> P
-    P --> Q[Write /output/results.json]
 ```

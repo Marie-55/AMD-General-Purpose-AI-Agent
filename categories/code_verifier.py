@@ -22,40 +22,12 @@ The tuple returned is ``(final_answer, path_taken, latency_metrics)`` where
 import ast
 import time
 
-from categories.code_exec import extract_code, run_code_safely
 from categories.code_exec import extract_code, run_code_safely, run_code_generation_check
-
-# ---------------------------------------------------------------------------
-# Category-specific fallback system instructions
-# (mirrors CATEGORY_INSTRUCTIONS in normalizer but focused on code tasks)
-# ---------------------------------------------------------------------------
-
-_FALLBACK_SYSTEM: dict[str, str] = {
-    "code_generation": (
-        "You are a Python programming expert. The previous code attempt could not be "
-        "verified. Answer the user's request as clearly as possible in natural language, "
-        "and if you include code wrap it in a single ```python block."
-    ),
-    "code_debugging": (
-        "You are a Python debugging expert. The previous code attempt could not be "
-        "verified. Return valid JSON only with keys issues and corrected_parts. "
-        "issues must be a short array of bug descriptions. corrected_parts must be an "
-        "array of objects containing only the corrected code snippets and optional "
-        "location/original fields. If you include code, put it in corrected_parts."
-    ),
-}
-
-_DEFAULT_FALLBACK_SYSTEM = (
-    "You are a helpful assistant. Answer the user's request as clearly and concisely "
-    "as possible."
-)
-
-_FIX_SYSTEM = (
-    "You are a Python expert. Fix the following code so it is syntactically correct "
-    "and runs without errors. Return valid JSON only. For code_generation include a "
-    "corrected_code field containing the full Python code. For code_debugging include "
-    "issues and corrected_parts fields, where corrected_parts contains the corrected "
-    "code snippets."
+from config import CODE_FIX_MAX_TOKENS
+from categories.prompts import (
+    CODE_VERIFY_FALLBACK_SYSTEM as _FALLBACK_SYSTEM,
+    CODE_VERIFY_DEFAULT_FALLBACK_SYSTEM as _DEFAULT_FALLBACK_SYSTEM,
+    CODE_VERIFY_FIX_SYSTEM as _FIX_SYSTEM,
 )
 
 
@@ -160,7 +132,7 @@ def verify_and_fix(
             fixed_output, _fix_lat = client.call(
                 model,
                 fix_messages,
-                max_tokens=600,
+                max_tokens=CODE_FIX_MAX_TOKENS,
                 timeout=timeout,
             )
         except Exception:  # noqa: BLE001
@@ -202,7 +174,7 @@ def verify_and_fix(
         nl_answer, _nl_lat = client.call(
             model,
             fallback_messages,
-            max_tokens=600,
+            max_tokens=CODE_FIX_MAX_TOKENS,
             timeout=timeout,
         )
     except Exception as exc:  # noqa: BLE001

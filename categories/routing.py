@@ -17,6 +17,9 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import sys
 
+from config import ROLE_CANDIDATE_TIERS, CATEGORY_ROLE
+from categories.task_categories import CODE_EXEC_CATEGORIES, LOGIC_NL_CATEGORIES
+
 
 def get_allowed_models():
     raw = os.environ.get("ALLOWED_MODELS", "")
@@ -25,75 +28,6 @@ def get_allowed_models():
         raise RuntimeError("ALLOWED_MODELS env var is empty or unset -- cannot route any calls.")
     return models
 
-
-# Each role lists candidate keyword-tiers in priority order. The first tier
-# whose matching model passes the health probe wins. Tiers after the first
-# are deliberate fallbacks, not "any allowed model" -- kept short and
-# specific so we never fall back into an expensive/wrong-fit model.
-ROLE_CANDIDATE_TIERS = {
-    # cheap categories (facts, sentiment, NER): cheapest model first,
-    # fall back to the general-purpose model (not the code specialist,
-    # which tends to spend extra reasoning tokens on non-code prompts).
-    "cheap_general": [
-        ["gemma-4-26b-a4b-it", "a4b"],
-        ["minimax-m3", "minimax"],
-    ],
-    "cheap_alt": [
-        ["gemma-4-31b-it-nvfp4", "nvfp4"],
-        ["minimax-m3", "minimax"],
-    ],
-    "quality_general": [
-        ["gemma-4-31b-it", "a4b"],
-        ["minimax-m3", "minimax"],
-    ],
-    "code_specialist": [
-        ["kimi", "code"],
-        ["minimax-m3", "minimax"],   # fallback when kimi is down
-    ],
-    # Summarization: try the cheapest quantised model first, escalate to the
-    # full-precision Gemma if the answer is poor, then fall through to minimax.
-    # Tier order MUST be cheapest → best so route() and route_summarization_fallback()
-    # both traverse in the right direction.
-    "summarization": [
-        ["gemma-4-26b-a4b-it"],   # tier-1: cheapest
-         ["kimi", "code"],
-        ["minimax-m3", "minimax"],         # tier-2: always-on safety net
-    ],
-    # code categories: no cheaper substitute makes sense here, so a single
-    # tier -- if the code specialist is down we want the direct-answer
-    # fallback in main.py to kick in, not a silent swap to a weaker fit.
-    # "code_specialist": [
-    #     ["kimi", "code"],
-    # ],
-    "reasoning_specialist": [
-        ["minimax-m3" , "minimax"],
-    ],
-    # In ROLE_CANDIDATE_TIERS, ADD this new role:
-"ner_general": [
-    ["gemma-4-26b-a4b-it", "a4b"],   # non-reasoning model, no budget waste
-    ["minimax-m3", "minimax"],        # fallback if gemma is down
-],
-
-
-}
-
-CATEGORY_ROLE = {
-    "sentiment": "cheap_general",
-    "factual_knowledge": "cheap_general",
-    "summarization": "summarization",   # dedicated cascade: gemma-26b → gemma-31b → minimax
-    #"ner": "cheap_general",
-    "code_debugging": "code_specialist",
-    "code_generation": "code_specialist",
-    "math_reasoning": "code_specialist",
-    "logic_puzzle": "reasoning_specialist",
-    # In CATEGORY_ROLE, CHANGE ner line:
-    "ner": "ner_general",   # was "cheap_general"
-}
-
-# math_reasoning: generate Python script → run locally → Fireworks NL fallback.
-# logic_puzzle: keep as Fireworks NL reasoning.
-CODE_EXEC_CATEGORIES = {"math_reasoning"}
-LOGIC_NL_CATEGORIES  = {"logic_puzzle"}
 
 # Populated once by resolve_roles(); route() reads from this cache.
 _RESOLVED_ROLE_MODEL = {}

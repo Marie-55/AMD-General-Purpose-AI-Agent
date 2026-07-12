@@ -1,0 +1,42 @@
+[
+  {
+    "task_id": "T01",
+    "answer": "The three primary colors in the RGB color model are **Red, Green, and Blue**.\n\nDisplays use RGB instead of RYB because screens are **emissive**\u2014they produce light directly rather than reflecting it. RGB is an **additive** color model: combining red, green, and blue light produces white, and varying their intensities can reproduce a wide range of colors. This matches how the human eye perceives color, since the retina has three types of cone cells most sensitive to roughly red, green, and blue wavelengths.\n\nRYB, by contrast, is a **subtractive** model designed for **reflective** media like paints and inks. Pigments work by absorbing (subtracting) certain wavelengths from ambient light; mixing all three RYB pigments absorbs most visible light, yielding black or muddy brown\u2014not white. Since a display cannot subtract light it emits, RYB is unsuitable for screen technology."
+  },
+  {
+    "task_id": "T01b",
+    "answer": "Machine learning is a subset of artificial intelligence that allows systems to improve their performance on a specific task over time without being explicitly programmed. It involves algorithms that can learn from and make predictions or decisions based on data.\n\nDeep learning, on the other hand, is a subset of machine learning that uses neural networks with multiple layers to learn from data. It is particularly effective for tasks that involve complex patterns and features. Deep learning models can automatically learn and extract features from raw data, such as images or text, which is a key advantage over traditional machine learning methods.\n\nIn terms of how they work, machine learning models are trained using labeled data to learn a mapping from inputs to outputs. The model is then tested on unseen data to see how well it generalizes. Deep learning models, while also using labeled data, have the added complexity of having multiple layers of neurons that can learn hierarchical representations of the input data. This hierarchical learning allows deep learning models to capture more complex and abstract features in the data."
+  },
+  {
+    "task_id": "T01c",
+    "answer": "**RAM (Random Access Memory)** is **volatile** memory that loses its data when the computer is powered off. It is used as the computer's **temporary working space** \u2014 storing the operating system, running applications, and data currently being processed so the CPU can access them quickly. More RAM generally allows a computer to run more programs simultaneously and handle larger tasks.\n\n**ROM (Read-Only Memory)** is **non-volatile** memory that retains its data even without power. It is used to store **permanent or semi-permanent instructions** that the computer needs to start up and function, such as the **BIOS/UEFI firmware**, which performs hardware checks and boots the operating system. ROM contents are typically written once (or rarely updated) by the manufacturer.\n\n**Key differences:**\n- **Volatility:** RAM is volatile; ROM is non-volatile.\n- **Mutability:** RAM is read-write (can be changed constantly); ROM is primarily read-only (written once or infrequently).\n- **Purpose:** RAM provides fast temporary storage for active tasks; ROM provides permanent storage for essential startup instructions."
+  },
+  {
+    "task_id": "T02",
+    "answer": "In Q1, the warehouse sells 37% of 2,400 units, which is 0.37 * 2400 = 924 units. After Q1, the stock is 2400 - 924 = 1476 units. In Q2, the warehouse restocks 800 units, so the stock becomes 1476 + 800 = 2276 units. In Q3, the warehouse sells 640 units, leaving 2276 - 640 = 1636 units. Therefore, at the end of Q3, there are 1636 units remaining."
+  },
+  {
+    "task_id": "T02b",
+    "answer": "**Step 1: Find sugar needed for 30 cookies**\n\nSugar per cookie = (3/4) \u00f7 12 = 3/48 = 1/16 cup\n\nSugar for 30 cookies = 30 \u00d7 (1/16) = 30/16 = **15/8 cups (1.875 cups)**\n\n**Step 2: Calculate total cost**\n\nCost = 1.875 \u00d7 $2.40\n- 1.875 \u00d7 2 = $3.75\n- 1.875 \u00d7 0.40 = $0.75\n- Total = $3.75 + $0.75 = **$4.50**\n\nAnswer: 4.5"
+  },
+  {
+    "task_id": "T03",
+    "answer": "Positive: The reviewer acknowledges initial issues but emphasizes that the product worked perfectly and the complaint was resolved quickly, leaving an overall favorable impression."
+  },
+  {
+    "task_id": "T03b",
+    "answer": "Positive: the user emphasizes the product's flawless quality and easy setup, outweighing the minor packaging issues."
+  },
+  {
+    "task_id": "T04",
+    "answer": "Machine learning is increasingly used in healthcare for diagnosis, treatment planning, and patient monitoring, offering benefits such as analyzing medical images and predicting patient deterioration, but raises concerns about interpretability, data privacy, liability, and algorithmic bias that may worsen healthcare disparities. Regulatory frameworks are struggling to keep pace with rapid deployment, creating uncertainty for both healthcare providers and technology developers."
+  },
+  {
+    "task_id": "T04b",
+    "answer": "- Remote work has transformed global company operations.\n- Employees enjoy flexibility and better work-life balance.\n- Companies invest in digital tools and rethink office spaces."
+  },
+  {
+    "task_id": "T05",
+    "answer": "[{\"text\": \"Sundar Pichai\", \"type\": \"PERSON\"}, {\"text\": \"Google\", \"type\": \"ORGANIZATION\"}, {\"text\": \"Zurich\", \"type\": \"LOCATION\"}, {\"text\": \"ETH Zurich\", \"type\": \"ORGANIZATION\"}, {\"text\": \"2023\", \"type\": \"DATE\"}]"
+  }
+]

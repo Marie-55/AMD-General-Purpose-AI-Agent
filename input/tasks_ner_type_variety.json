@@ -1,0 +1,18 @@
+[
+  {
+    "task_id": "NER01_standard_types",
+    "prompt": "Extract all named entities from the following text and label each as PERSON, ORGANIZATION, LOCATION, or DATE:\n\n'On June 4 2024, Satya Nadella announced that Microsoft would expand its data center in Dublin, in partnership with Trinity College Dublin.'"
+  },
+  {
+    "task_id": "NER02_custom_types",
+    "prompt": "Extract all named entities from the following text and label each as PRODUCT, COMPANY, or PRICE:\n\n'Apple unveiled the new MacBook Pro at a starting price of $1,999, positioning it against Dell's XPS lineup, which starts at $1,499.'"
+  },
+  {
+    "task_id": "NER03_subset_only",
+    "prompt": "Extract only PERSON and LOCATION entities (ignore all other entity types) from the following text:\n\n'Marie Curie conducted much of her research in Paris, though she was born in Warsaw and later collaborated with scientists in Stockholm.'"
+  },
+  {
+    "task_id": "NER04_no_types_specified",
+    "prompt": "Extract the named entities from this text and return them as a JSON array with 'text' and 'type' keys:\n\n'NASA's Perseverance rover, launched in July 2020, landed on Mars in the Jezero Crater.'"
+  }
+]

@@ -1,3 +1,10 @@
+"""Manual dev script: probes each Fireworks model ID with a real API call.
+
+Not a pytest test (deliberately not named test_*.py) -- it makes real,
+billed Fireworks requests at import time, so pytest must never auto-collect
+it. Run directly: python tests/check_model_availability.py, with
+FIREWORKS_API_KEY / FIREWORKS_BASE_URL exported first.
+"""
 import os
 from openai import OpenAI
 
