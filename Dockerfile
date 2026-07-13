@@ -20,7 +20,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
-COPY . .
+# Model weights copied as their own layers, one per file -- a single
+# ~3.86GB layer (both models together, what a blanket `COPY . .` would
+# produce) has no partial-resume on `docker push`: if the upload drops
+# anywhere inside it, the whole layer restarts from zero. Two ~1.9GB
+# layers instead means a dropped connection only costs one model's worth
+# of re-upload, not both.
+COPY models/qwen2.5-3b-instruct-q4_k_m.gguf models/qwen2.5-3b-instruct-q4_k_m.gguf
+COPY models/qwen2.5-coder-3b-instruct-q4_k_m.gguf models/qwen2.5-coder-3b-instruct-q4_k_m.gguf
+
+# Everything else, copied explicitly rather than `COPY . .` -- a blanket
+# copy would re-touch the model files above a second time, doubling their
+# footprint across layers instead of splitting it.
+COPY main.py config.py setup_local_models.py ./
+COPY categories/ categories/
 
 # Fail the build early (not at runtime) if the model weights weren't
 # downloaded via setup_local_models.py before `docker build`. Matches
